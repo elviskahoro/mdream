@@ -1,0 +1,31 @@
+[build-system]
+requires = ["maturin>=1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "mdream"
+dynamic = ["version"]
+description = "Fastest HTML to Markdown converter with streaming and plugin support"
+license = "MIT"
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Text Processing :: Markup :: Markdown",
+]
+
+[tool.maturin]
+module-name = "mdream._mdream"
+features = ["extension-module"]
+python-source = "python"
