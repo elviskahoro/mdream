@@ -1,0 +1,235 @@
+name: Python
+
+# CI, wheels, and PyPI release for the mdream PyO3 binding (crates/python).
+#
+# The binding crate lands from a parallel implementation convoy, so the
+# `gate` job skips `test`, `wheels`, and `publish` cleanly while crates/python
+# is absent on a ref; the workflow turns itself on with the first change under
+# crates/python (pull_request paths filter) and after the merge (branch push).
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+      - 1.x
+    tags:
+      - 'v*'
+  pull_request:
+    paths:
+      - 'crates/python/**'
+      - '.github/workflows/python.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to resume (for example, v2.2.1)
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  # Never cancel an in-flight publish; queue resumed releases instead.
+  cancel-in-progress: false
+
+env:
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  gate:
+    name: Python crate present
+    runs-on: ubuntu-latest
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check crates/python exists
+        id: check
+        run: |
+          if [ -d crates/python ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "crates/python is absent on this ref; skipping Python jobs."
+          fi
+
+  # ── PR/test job: maturin build + import + pytest on both wheel platforms ──
+  test:
+    name: Python Tests (${{ matrix.os }})
+    needs: gate
+    if: needs.gate.outputs.present == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-latest is x86_64 native, macos-latest is arm64 native: the
+        # same two platforms the wheel job builds for.
+        os:
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Resume runs build the requested tag, not the dispatch branch.
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || '' }}
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          # The binding's abi3 floor (requires-python >=3.10); proves the
+          # minimum supported interpreter, not just the newest.
+          python-version: '3.10'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates -> target
+
+      - name: Build and install the extension
+        working-directory: crates/python
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade maturin pytest
+          .venv/bin/maturin develop
+
+      - name: Import check and pytest
+        working-directory: crates/python
+        run: |
+          .venv/bin/python -c "import mdream; print(mdream.__version__)"
+          .venv/bin/pytest tests/
+
+  # ── Wheel job: macOS arm64 + Linux x86_64 wheels, sdist, artifacts ──
+  wheels:
+    name: Wheels (${{ matrix.target }})
+    needs: gate
+    if: needs.gate.outputs.present == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            manylinux: '2_28'
+            sdist: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || '' }}
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates -> target
+
+      # maturin-action installs its own stable Rust toolchain when the runner
+      # has none; manylinux builds run inside the manylinux container.
+      - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          sdist: ${{ matrix.sdist }}
+          args: -m crates/python/Cargo.toml --out dist --locked
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6f0a # v7.0.1
+        with:
+          name: wheels-${{ matrix.target }}
+          path: dist/
+          if-no-files-found: error
+
+  # ── Tag-driven release: publish to PyPI via trusted publishing ──
+  # Mirrors release-cargo.yml (crates.io trusted publishing): version-tag
+  # consistency via scripts/sync-cargo-version.mjs, resumable on re-runs.
+  # PyPI trusted-publisher pre-registration for this repo/workflow and the
+  # first actual publish are human-gated rollout steps (see the plan); this
+  # job stays red-free but cannot publish until that registration is done.
+  publish:
+    name: Publish to PyPI
+    needs: [gate, wheels]
+    if: >-
+      needs.gate.outputs.present == 'true'
+      && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    # Must match the environment configured in the PyPI trusted-publisher
+    # registration (human rollout step).
+    environment: pypi
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Resolve release channel
+        id: channel
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: node scripts/release-channel.mjs "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Verify release branch
+        env:
+          RELEASE_BRANCH: ${{ steps.channel.outputs.branch }}
+        run: git merge-base --is-ancestor HEAD "origin/$RELEASE_BRANCH"
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+
+      - name: Resolve distribution and version
+        id: version
+        working-directory: crates
+        env:
+          TAG_VERSION: ${{ steps.channel.outputs.version }}
+        run: |
+          CRATE_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "mdream-python") | .version')
+          DIST_NAME=$(python -c "import tomllib; print(tomllib.load(open('python/pyproject.toml', 'rb'))['project']['name'])")
+          echo "dist=$DIST_NAME" >> "$GITHUB_OUTPUT"
+          echo "crate=$CRATE_VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$TAG_VERSION" != "$CRATE_VERSION" ]; then
+            echo "::error::Tag v$TAG_VERSION does not match mdream-python crate version $CRATE_VERSION. Did the version bump run scripts/sync-cargo-version.mjs?"
+            exit 1
+          fi
+
+          if curl -sf "https://pypi.org/pypi/$DIST_NAME/$CRATE_VERSION/json" >/dev/null; then
+            echo "$DIST_NAME@$CRATE_VERSION is already on PyPI; skipping publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          pattern: wheels-*
+          merge-multiple: true
+
+      - name: Verify wheel artifacts
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          ls -la dist/
+          ls dist/*.whl >/dev/null || { echo "::error::No wheels in dist/"; exit 1; }
+          ls dist/*.tar.gz >/dev/null || { echo "::error::No sdist in dist/"; exit 1; }
+
+      - name: Publish to PyPI
+        if: steps.version.outputs.publish == 'true'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: dist
+          skip-existing: true
