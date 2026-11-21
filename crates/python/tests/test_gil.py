@@ -7,24 +7,62 @@ import time
 import mdream
 
 
-# Large enough that one conversion runs for well over the counting floor
-# (~0.2s single-threaded on current hardware).
-HTML = "<p>" + ("lorem ipsum dolor sit amet " * 1_000_000) + "</p>"
-CHUNK = "<p>" + ("lorem ipsum dolor sit amet " * 500_000) + "</p>"
+# Fixtures grow adaptively (doubling the repeated word count, capped at ~8x
+# the base size) until one conversion exceeds TIMING_FLOOR, so the test does
+# not depend on machine speed: on fast hardware the base document converts
+# in under 0.05s, which used to trip a fixed-size precondition ~1-in-3 runs
+# even though the GIL was genuinely released.
+WORD = "lorem ipsum dolor sit amet "
+TIMING_FLOOR = 0.2  # seconds; a single conversion must run for well over this
+ONE_SHOT_BASE_REPEATS = 1_000_000
+STREAM_BASE_REPEATS = 500_000
 
 
-def one_shot_duration():
+def _grow_until_slow(base_repeats, run_once):
+    """Returns (document, single-run duration); doubles the word count,
+    capped at ~8x the base, until one run exceeds TIMING_FLOOR."""
+    max_repeats = base_repeats * 8
+    repeats = base_repeats
+    while True:
+        document = "<p>" + (WORD * repeats) + "</p>"
+        duration = run_once(document)
+        if duration > TIMING_FLOOR or repeats >= max_repeats:
+            return document, duration
+        repeats *= 2
+
+
+def _one_shot(document):
     start = time.perf_counter()
-    mdream.html_to_markdown(HTML)
+    mdream.html_to_markdown(document)
     return time.perf_counter() - start
 
 
-def stream_round_duration():
+def _stream_round(document):
     start = time.perf_counter()
     s = mdream.MarkdownStream()
-    s.process_chunk(CHUNK)
+    s.process_chunk(document)
     s.finish()
     return time.perf_counter() - start
+
+
+_one_shot_fixture = None
+_stream_fixture = None
+
+
+def one_shot_fixture():
+    """(html, single-run duration) for a document slow enough to time."""
+    global _one_shot_fixture
+    if _one_shot_fixture is None:
+        _one_shot_fixture = _grow_until_slow(ONE_SHOT_BASE_REPEATS, _one_shot)
+    return _one_shot_fixture
+
+
+def stream_fixture():
+    """(chunk, single-round duration) for a stream round slow enough to time."""
+    global _stream_fixture
+    if _stream_fixture is None:
+        _stream_fixture = _grow_until_slow(STREAM_BASE_REPEATS, _stream_round)
+    return _stream_fixture
 
 
 def iterations_while_worker_converts(convert):
@@ -53,11 +91,10 @@ def iterations_while_worker_converts(convert):
 
 
 def test_one_shot_conversion_releases_the_gil():
-    single = one_shot_duration()
-    assert single > 0.05, f"test input too small: one conversion took {single:.4f}s"
+    html, single = one_shot_fixture()
 
     def convert(done):
-        done["md"] = mdream.html_to_markdown(HTML)
+        done["md"] = mdream.html_to_markdown(html)
         done["done"] = True
 
     iterations = iterations_while_worker_converts(convert)
@@ -71,12 +108,11 @@ def test_one_shot_conversion_releases_the_gil():
 
 
 def test_stream_process_chunk_releases_the_gil():
-    single = stream_round_duration()
-    assert single > 0.05, f"test input too small: one stream round took {single:.4f}s"
+    chunk, single = stream_fixture()
 
     def convert(done):
         s = mdream.MarkdownStream()
-        s.process_chunk(CHUNK)
+        s.process_chunk(chunk)
         s.finish()
         done["done"] = True
 

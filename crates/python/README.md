@@ -121,9 +121,9 @@ All flags are `bool`, `false` by default:
 | Key             | Type | Description |
 | --------------- | ---- | ----------- |
 | `filter`        | `dict` | Filter content by CSS selector: `include` (list of selectors to keep, dropping everything else), `exclude` (list of selectors to remove), `process_children` (`bool` — when `true`, children of an excluded element are still processed). |
-| `isolate_main`  | `dict` | Restrict output to the page's `<main>` element. Pass `{}` to enable. |
-| `frontmatter`   | `dict` | Extract `<head>` metadata into YAML frontmatter: `additional_fields` (list of `[key, value]` pairs appended to the frontmatter; reserved keys such as `title` are ignored), `meta_fields` (list of extra `<meta name="...">` keys to extract beyond the defaults). |
-| `tailwind`      | `dict` | Convert Tailwind utility classes to semantic Markdown. Pass `{}` to enable. |
+| `isolate_main`  | `bool` | Restrict output to the page's `<main>` element. Pass `True` to enable. |
+| `frontmatter`   | `dict` | Extract `<head>` metadata into YAML frontmatter: `additional_fields` (dict of `{name: value}` string pairs appended to the frontmatter; reserved keys such as `title` are ignored), `meta_fields` (list of extra `<meta name="...">` keys to extract beyond the defaults). |
+| `tailwind`      | `bool` | Convert Tailwind utility classes to semantic Markdown. Pass `True` to enable. |
 | `extraction`    | `dict` | `selectors` (list of CSS selectors); matched elements are collected into the result's `extracted` / `take_data()["extracted"]`. |
 | `tag_overrides` | `dict` | Per-tag rendering overrides keyed by lowercase tag name (see below). |
 

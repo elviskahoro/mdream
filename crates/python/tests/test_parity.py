@@ -35,6 +35,21 @@ def test_html_to_markdown_matches_convert():
         assert mdream.html_to_markdown(html, options) == expected_md
 
 
+def test_documented_plugin_option_shapes_work():
+    # Review F1 guard: every option value shape the README documents must
+    # be accepted end-to-end at the Python level without TypeError.
+    html = "<main><h1>Title</h1><p>Hello <em>world</em>.</p></main>"
+    shapes = [
+        {"plugins": {"isolate_main": True}},
+        {"plugins": {"tailwind": True}},
+        {"plugins": {"frontmatter": {"additional_fields": {"k": "v"}}}},
+    ]
+    for options in shapes:
+        md = mdream.html_to_markdown(html, options)
+        assert isinstance(md, str)
+        assert md
+
+
 def test_html_to_text_omits_markdown_syntax():
     html = "<h1>Title</h1><p>Some <strong>bold</strong> text.</p>"
     text = mdream.html_to_text(html)
