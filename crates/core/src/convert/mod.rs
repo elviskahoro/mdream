@@ -708,6 +708,7 @@ const CLEAN_REDUNDANT_LINKS: u8 = 4;
 const CLEAN_SELF_LINK_HEADINGS: u8 = 8;
 const CLEAN_EMPTY_IMAGES: u8 = 16;
 const CLEAN_EMPTY_LINK_TEXT: u8 = 32;
+const CLEAN_DROP_IMAGES: u8 = 64;
 
 const SCRIPT_DATA: u8 = 0;
 const SCRIPT_DATA_ESCAPED: u8 = 1;
@@ -1756,6 +1757,9 @@ impl ConvertState {
         flags |= CLEAN_EMPTY_LINK_TEXT;
       }
       s.clean_flags = flags;
+    }
+    if !MARKDOWN_ONLY_EDGE && s.options.drop_images {
+      s.clean_flags |= CLEAN_DROP_IMAGES | CLEAN_EMPTY_LINK_TEXT;
     }
 
     s.text_static_ok = s.is_markdown() && options_max_node_bytes == 0 && s.wrap_width() == 0;

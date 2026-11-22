@@ -2121,7 +2121,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
   let blankCaptionFrames = 0
   const clean = options.clean
   const cleanRules = typeof clean === 'object' && clean !== null ? clean : undefined
-  const cleanEmptyLinkText = clean === true || cleanRules?.emptyLinkText === true
+  const cleanEmptyLinkText = clean === true || cleanRules?.emptyLinkText === true || options.images === false
   // The rules that rewrite links after they are written live in the Cleaner,
   // so they stay out of bundles that never import `clean()`.
   const cleanPass = typeof (cleanRules as Cleaner | undefined)?.apply === 'function'
@@ -2762,6 +2762,14 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
           }
         }
         state.pendingInlineWhitespace = false
+      }
+
+      // A dropped image leaves the space before it, so the one after it folds in.
+      if (state.options?.images === false && lastChar === ' ' && textNode.value.charCodeAt(0) === 32
+        && (lastNode as ElementNode | undefined)?.tagId === TAG_IMG && !state.depthMap[TAG_PRE] && !state.depthMap[TAG_CODE]) {
+        textNode.value = textNode.value.slice(1)
+        if (!textNode.value)
+          return
       }
 
       if (textNode.value === ' ' && (lastChar === ' ' || lastChar === '\n' || lastChar === '\t' || lastChar === '\r'))

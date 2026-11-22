@@ -207,6 +207,7 @@ fn parse_conversion_options(
     clean,
     plugins,
     wrap_width,
+    drop_images: get_prop(options, "images").as_bool() == Some(false),
     // Not exposed through the bindings yet: the JS engine has no equivalent cap.
     max_node_bytes: 0,
   };

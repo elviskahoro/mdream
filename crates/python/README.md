@@ -100,6 +100,7 @@ Top-level keys (all optional):
 | `origin`        | `str` | — | Base URL used to resolve relative links and image sources. |
 | `clean`         | `dict` | — | Post-processing cleanup rules (see below). |
 | `plugins`       | `dict` | — | Plugin configuration (see below). |
+| `images`        | `bool` | `True` | Pass `False` to omit images and drop links left with no text, such as image-only links. Markdown and text output. |
 | `wrap_width`    | `int` | `0` | Hard-wrap prose at this many characters, breaking on word boundaries. `0` disables wrapping. Code, tables, and headings are never wrapped. |
 | `format`        | `str` | `"markdown"` | Output format: `"markdown"`, `"text"`, or `"html"`. |
 | `max_node_bytes`| `int` | `0` | Safety cap in bytes on what one construct may buffer — a text node, a tag, an open code block or inline code span, a table row's columns, or extraction script text. `0` (the default) is unlimited; content past the cap is **dropped**, bounding memory on adversarial input. Useful when streaming untrusted email. `truncated` in the result (or `MarkdownStream.truncated`) reports whether it fired. |

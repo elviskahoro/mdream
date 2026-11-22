@@ -292,6 +292,8 @@ function elementOutput(node: ElementNode, eventType: number, state: TextState): 
     if (node.tagId === TAG_TD || node.tagId === TAG_TH)
       return state.depthMap[TAG_TABLE]! > 1 || node.index === 0 ? undefined : '\t'
     if (node.tagId === TAG_IMG) {
+      if (state.options.images === false)
+        return undefined
       const alt = node.attributes.alt
       const clean = state.options.clean
       const stripsEmptyImage = clean === true || (clean != null && clean !== false && clean.emptyImages === true)
@@ -566,6 +568,13 @@ export function createTextOutputProcessor(options: EngineOptions, hasPlugins = f
     }
     if (state.depthMap[TAG_PRE] && state.buffer.length === 0)
       preserveLeadingWhitespace = true
+    // A dropped image leaves the space before it, so the one after it folds in.
+    if (state.options.images === false && last === ' ' && node.value.charCodeAt(0) === 32
+      && (lastNode as ElementNode | undefined)?.tagId === TAG_IMG && !state.depthMap[TAG_PRE]) {
+      node.value = node.value.slice(1)
+      if (!node.value)
+        return
+    }
     if (node.value === ' ' && last !== '' && ' \n\t\r'.includes(last))
       return
     if (captionBreakOwnsLine) {

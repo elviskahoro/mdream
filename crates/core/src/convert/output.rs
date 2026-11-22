@@ -2750,12 +2750,13 @@ impl ConvertState {
       self.prepend_list_break(&mut output);
     }
 
-    if self.clean_flags() & CLEAN_EMPTY_IMAGES != 0
-      && tag_id == Some(TAG_IMG)
-      && self.stack[stack_len - 1]
-        .attributes
-        .get("alt")
-        .is_none_or(|alt| alt.chars().all(is_ecmascript_whitespace))
+    if tag_id == Some(TAG_IMG)
+      && (self.clean_flags() & CLEAN_DROP_IMAGES != 0
+        || (self.clean_flags() & CLEAN_EMPTY_IMAGES != 0
+          && self.stack[stack_len - 1]
+            .attributes
+            .get("alt")
+            .is_none_or(|alt| alt.chars().all(is_ecmascript_whitespace))))
     {
       self.last_node_is_inline = is_inline;
       return;

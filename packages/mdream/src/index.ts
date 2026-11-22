@@ -83,6 +83,11 @@ export interface MdreamOptions {
    */
   wrapWidth?: number
   /**
+   * Set `false` to omit images and drop links left with no text, such as
+   * image-only links. Markdown and plain-text output only. Defaults to `true`.
+   */
+  images?: boolean
+  /**
    * Output format. Defaults to `markdown`; use `text` for readable plain text,
    * or `html` for allowlisted semantic HTML.
    */

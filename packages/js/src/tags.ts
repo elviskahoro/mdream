@@ -923,6 +923,8 @@ export const tagHandlers: Record<number, TagHandler> = {
       const rawSrc = node.attributes?.src || ''
       // A data URL is unreadable and can be megabytes of base64; keep only the alt.
       const src = isDataUrl(rawSrc) ? '' : resolveUrl(rawSrc, state.options?.origin, state.options?.clean)
+      if (state.options?.images === false)
+        return undefined
       const clean = state.options?.clean
       const stripsEmptyImage = clean === true
         || (clean !== undefined && clean !== false && clean.emptyImages === true)

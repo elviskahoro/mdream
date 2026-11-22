@@ -18,6 +18,7 @@ const FULL_BUILD_OPTIONS = {
   extraction: true,
   tagOverrides: true,
   wrapWidth: true,
+  images: true,
 } satisfies Record<FullBuildOption, true>
 
 const fullBuildKeys = Object.keys(FULL_BUILD_OPTIONS)

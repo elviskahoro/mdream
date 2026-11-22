@@ -25,6 +25,7 @@ const CONFIGS = {
   tailwind: { rust: { tailwind: true }, js: () => ({ plugins: [tailwindPlugin()] }) },
   clean: { rust: { clean: true }, js: () => ({ clean: clean() }) },
   cleanWrap: { rust: { clean: true, wrapWidth: 20 }, js: () => ({ clean: clean(), wrapWidth: 20 }) },
+  noImages: { rust: { images: false }, js: () => ({ images: false }) },
   minimal: { rust: { minimal: true }, js: () => withMinimalPreset() },
 } satisfies Record<string, Config>
 
@@ -35,6 +36,12 @@ const JS: Record<Format, (html: string, options: JsOptions) => string> = {
 }
 
 const CASES: { group: string, config: keyof typeof CONFIGS, formats?: Format[], html: string[] }[] = [
+  { group: 'no-images', config: 'noImages', formats: ['markdown', 'text'], html: [
+    '<a href="/x"><img src="a.png" alt="A"></a><p>hi</p>',
+    '<p>a <img src="b.png" alt="B"> c</p>',
+    '<a href="/y">t<img src="a.png" alt="A"></a>',
+    '<ul><li><a href="/z"><img src="a.png"></a></li><li>b</li></ul>',
+  ] },
   { group: 'fm-empty-block', config: 'frontmatter', html: ['<head></head><p>x</p>', '<head>', '<head>e'] },
   { group: 'fm-empty-block', config: 'minimal', html: ['<head>', '<head>e'] },
   { group: 'fm-meta-order', config: 'frontmatter', html: [

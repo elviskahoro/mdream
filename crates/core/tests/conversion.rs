@@ -5389,6 +5389,33 @@ fn clean_image_no_alt_attr_stripped() {
   );
 }
 
+// ── drop_images ──
+
+#[test]
+fn drop_images_removes_images_and_image_only_links() {
+  let opts = || HtmlToMarkdownOptions {
+    drop_images: true,
+    ..Default::default()
+  };
+  for (html, expected) in [
+    (r#"<a href="/x"><img src="a.png" alt="A"></a><p>hi</p>"#, "hi"),
+    (r#"<p>a <img src="b.png" alt="B"> c</p>"#, "a c"),
+    (r#"<a href="/y">t<img src="a.png" alt="A"></a>"#, "[t](/y)"),
+  ] {
+    assert_eq!(html_to_markdown(html, opts()), expected, "{html}");
+    for split in 1..html.len().saturating_sub(1) {
+      if !html.is_char_boundary(split) {
+        continue;
+      }
+      let mut processor = MarkdownStreamProcessor::new(opts());
+      let mut out = processor.process_chunk(&html[..split]);
+      out.push_str(&processor.process_chunk(&html[split..]));
+      out.push_str(&processor.finish());
+      assert_eq!(out, expected, "{html} split at {split}");
+    }
+  }
+}
+
 // ── emptyLinkText ──
 
 #[test]

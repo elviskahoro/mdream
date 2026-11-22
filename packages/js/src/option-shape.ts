@@ -8,7 +8,7 @@ export function checkClean(options: Partial<MdreamOptions>): void {
     throw new TypeError('The clean option needs cleanup rules from clean(). Import it from \'@mdream/js/clean\'.')
 }
 
-const CONVERTER_OPTIONS = 'origin, tagOverrides, clean, wrapWidth, plugins'
+const CONVERTER_OPTIONS = 'origin, tagOverrides, clean, wrapWidth, images, plugins'
 const SPLITTER_OPTIONS = `${CONVERTER_OPTIONS}, headersToSplitOn, returnEachLine, stripHeaders, chunkSize, chunkOverlap, lengthFunction, keepSeparator`
 
 function isConverterOption(key: string): boolean {
@@ -17,6 +17,7 @@ function isConverterOption(key: string): boolean {
     case 'tagOverrides':
     case 'clean':
     case 'wrapWidth':
+    case 'images':
     case 'plugins':
       return true
   }
