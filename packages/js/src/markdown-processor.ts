@@ -3426,7 +3426,9 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     // unknown elements only affect spacing, so allocating an empty array for
     // every enter/exit event adds pure GC pressure.
     let output: string[] | undefined
-    const pluginOutput = element.pluginOutput
+    const pluginOutput = tagId === TAG_IMG && options.images === false ? undefined : element.pluginOutput
+    if (tagId === TAG_IMG && options.images === false)
+      element.pluginOutput = undefined
     const hasPluginOutput = !!pluginOutput?.length
     if (pluginOutput?.length) {
       notePluginFences(state, pluginOutput)
@@ -4540,7 +4542,12 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     // every hold: a fence whose owner reset the open flag before exiting can
     // never be rewritten, and holding it suppressed the whole output.
     if (!final && rawLinkFragment >= 0) {
-      for (let index = rawLinkFragment + 1; index < state.buffer.length; index++) {
+      const scanEnd = Math.min(
+        state.buffer.length,
+        openMarkerCount ? openMarkers[0]! >> 3 : Infinity,
+        gfmLifecycle.openCodeSpans[0]?.fragment ?? Infinity,
+      )
+      for (let index = rawLinkFragment + 1; index < scanEnd; index++) {
         if (hasNonWhitespace(state.buffer[index]!)) {
           rawLinkFragment = -1
           break

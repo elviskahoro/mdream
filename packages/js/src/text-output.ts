@@ -667,6 +667,8 @@ export function createTextOutputProcessor(options: EngineOptions, hasPlugins = f
         }
       }
     }
+    if (element.tagId === TAG_IMG && state.options.images === false)
+      element.pluginOutput = undefined
     if (element.pluginOutput?.length) {
       output = element.pluginOutput.join('')
       element.pluginOutput = undefined

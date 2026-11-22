@@ -7,6 +7,7 @@ const CASES: [string, string][] = [
   ['<a href="/x"><img src="a.png"></a><p>hi</p>', 'hi'],
   ['<a href="/y">t<img src="a.png"></a>', '[t](/y)'],
   ['<details><a href="/x"><img src="a.png"></a></details>', '<details></details>'],
+  ['<details><a href="/x"><strong><img src="x"></strong></a></details>', '<details></details>'],
   ['<details><a href="/x">t<img src="a.png"></a></details>', '<details><a href="/x">t</a></details>'],
 ]
 
@@ -47,6 +48,15 @@ describe('images: false', () => {
     for await (const part of { [Symbol.asyncIterator]: () => iterator })
       result += part
     expect(result).toBe(htmlToMarkdown(`${prefix}more text <img src="x">`, { images: false }))
+  })
+
+  it('suppresses image plugin output on enter and exit', () => {
+    for (const hook of ['onNodeEnter', 'onNodeExit'] as const) {
+      const plugins = [{ [hook]: (node: { name: string }) => node.name === 'img' ? 'IMG' : undefined }]
+      const options = { images: false, plugins }
+      expect(htmlToMarkdown('<p>a<img src="b.png">b</p>', options)).toBe('ab')
+      expect(htmlToText('<p>a<img src="b.png">b</p>', options)).toBe('ab')
+    }
   })
 
   it('suppresses an image override', () => {
