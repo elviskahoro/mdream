@@ -688,7 +688,7 @@ function markdownLineIndent(buffer: string[], structuralIndent: number): number 
       // A list marker is block prefix too: its content column opens a fresh
       // block context, so `- # h` escapes exactly like `# h` would.
       if (code !== 32 || spaces === structuralIndent + 3) {
-        return listMarkerLineStart(buffer, fragmentIndex, index) ? 0 : -1
+        return listMarkerLineStart(buffer, fragmentIndex, index, structuralIndent + 3) ? 0 : -1
       }
       spaces++
     }

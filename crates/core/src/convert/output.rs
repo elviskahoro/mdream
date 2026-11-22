@@ -6027,7 +6027,7 @@ impl ConvertState {
         // A list marker is block prefix too: its content column opens a fresh
         // block context, so `- # h` escapes exactly like `# h` would.
         return self
-          .list_marker_line_start(bytes, offset + 1, 3)
+          .list_marker_line_start(bytes, offset + 1, structural_indent + 3)
           .then_some(0);
       }
       spaces += 1;

@@ -6847,7 +6847,7 @@ fn a_drain_inside_a_line_lead_keeps_block_line_checks_like_one_shot() {
     ),
     (
       "<li><ul><li><ul><li><h3></h3><e><figcaption><code><em></figcaption><div><r></ul>>",
-      "-\n  -\n    - >",
+      "-\n  -\n    - \\>",
       HtmlToMarkdownOptions::default(),
     ),
     // Cut just after the document's first list marker.

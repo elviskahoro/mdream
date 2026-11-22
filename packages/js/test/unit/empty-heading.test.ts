@@ -47,6 +47,12 @@ describe('empty headings', () => {
     await iterator.return?.()
   })
 
+  it('escapes a literal blockquote marker after an empty nested heading', async () => {
+    const html = '<li><ul><li><ul><li><h3></h3><e><figcaption><code><em></figcaption><div><r></ul>>'
+    expect(htmlToMarkdown(html)).toMatch(/- \\>$/)
+    expect(await convertStream(html, 1)).toMatch(/- \\>$/)
+  })
+
   it.each(cases)('emits nothing for %s', (html, expected) => {
     expect(htmlToMarkdown(html)).toBe(expected)
   })
