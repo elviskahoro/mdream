@@ -2113,6 +2113,11 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
   let captionLineOpens = false
   const gfmLifecycle: GfmLifecycleState = { openCodeSpans: [], quoteWritten: false }
   let openLinkFragment = -1
+  // Whether `images: false` dropped an image inside the open link, which then may go too.
+  let imageDroppedInLink = false
+  // Fragment of an open raw-HTML anchor's opening tag, held so an image-only one can go.
+  let rawLinkFragment = -1
+  let imageDroppedInRawLink = false
   let openLinkHeadingBreak = false
   let openLinkCaptionBreakRun = 0
   let openLinkCaptionFlags: Uint8Array | undefined
@@ -2121,7 +2126,8 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
   let blankCaptionFrames = 0
   const clean = options.clean
   const cleanRules = typeof clean === 'object' && clean !== null ? clean : undefined
-  const cleanEmptyLinkText = clean === true || cleanRules?.emptyLinkText === true || options.images === false
+  const explicitEmptyLinkText = clean === true || cleanRules?.emptyLinkText === true
+  const cleanEmptyLinkText = explicitEmptyLinkText || options.images === false
   // The rules that rewrite links after they are written live in the Cleaner,
   // so they stay out of bundles that never import `clean()`.
   const cleanPass = typeof (cleanRules as Cleaner | undefined)?.apply === 'function'
@@ -2140,6 +2146,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
   /** Track a link whose `[` sits at buffer index `fragment`. */
   function openLink(fragment: number, headingBreak: boolean): void {
     openLinkHeadingBreak = headingBreak
+    imageDroppedInLink = false
     if (!cleanEmptyLinkText) {
       openLinkFragment = -fragment - 2
       return
@@ -3220,8 +3227,31 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     }
 
     const element = node as ElementNode
-    const handler = node.tagHandler
+    // `images: false` drops an image whatever an override would have written.
+    const handler = element.tagId === TAG_IMG && options.images === false ? tagHandlers[TAG_IMG] : node.tagHandler
     const tagId = element.tagId!
+    if (tagId === TAG_IMG && eventType === NodeEventEnter && options.images === false) {
+      if (openLinkFragment >= 0)
+        imageDroppedInLink = true
+      if (rawLinkFragment >= 0)
+        imageDroppedInRawLink = true
+    }
+    if (tagId === TAG_A && eventType === NodeEventExit && rawLinkFragment >= 0) {
+      const start = rawLinkFragment
+      rawLinkFragment = -1
+      let blank = imageDroppedInRawLink && start < buff.length
+      for (let index = start + 1; blank && index < buff.length; index++)
+        blank = !hasNonWhitespace(buff[index]!)
+      if (blank) {
+        state.outputPositions?.replace(start, buff.length, [])
+        buff.length = start
+        noteBufferRewrite(state)
+        state.lastContentCache = buff.at(-1)
+        state.lastTextNode = undefined
+        rawHtmlLink = undefined
+        return
+      }
+    }
     if (eventType === NodeEventExit && state.codeText?.owner === element)
       state.codeText = undefined
     if ((tagId === TAG_UL || tagId === TAG_OL) && eventType === NodeEventEnter) {
@@ -3429,7 +3459,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
       if (openLinkFragment >= 0
         && eventType === NodeEventExit
         && tagId === TAG_A) {
-        if (dropBlankLink(buff, openLinkFragment, state.outputPositions)) {
+        if ((explicitEmptyLinkText || imageDroppedInLink) && dropBlankLink(buff, openLinkFragment, state.outputPositions)) {
           noteBufferRewrite(state)
           if (openLinkHeadingBreak) {
             state.outputPositions?.replace(openLinkFragment - 1, openLinkFragment, [])
@@ -3688,10 +3718,16 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
         : undefined
 
     if (element.tagId === TAG_A) {
-      if (eventType === NodeEventEnter)
+      if (eventType === NodeEventEnter) {
         rawHtmlLink = insideRawHtmlRegion && handlerOutput !== undefined && !handler?.literalExit ? element : undefined
-      else
+        if (options.images === false && rawHtmlLink) {
+          rawLinkFragment = buff.length
+          imageDroppedInRawLink = false
+        }
+      }
+      else {
         rawHtmlLink = undefined
+      }
     }
 
     let lastNewLines = 0
@@ -4511,6 +4547,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
           gfmLifecycle.openCodeSpans[0]?.fragment ?? Infinity,
           state.emptyItemFragment ?? Infinity,
           state.codeFence?.fragment ?? Infinity,
+          rawLinkFragment >= 0 ? rawLinkFragment : Infinity,
           openLinkFragment === -1 ? Infinity : openLinkFragment < -1 ? -openLinkFragment - 2 : openLinkFragment - Number(openLinkHeadingBreak),
         )
     if (!final && literalOpeners.length)

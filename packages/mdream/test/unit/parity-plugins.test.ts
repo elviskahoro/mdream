@@ -26,6 +26,10 @@ const CONFIGS = {
   clean: { rust: { clean: true }, js: () => ({ clean: clean() }) },
   cleanWrap: { rust: { clean: true, wrapWidth: 20 }, js: () => ({ clean: clean(), wrapWidth: 20 }) },
   noImages: { rust: { images: false }, js: () => ({ images: false }) },
+  noImagesOverride: {
+    rust: { images: false, tagOverrides: { img: { enter: 'IMG' } } },
+    js: () => ({ images: false, tagOverrides: { img: { enter: 'IMG' } } }),
+  },
   minimal: { rust: { minimal: true }, js: () => withMinimalPreset() },
 } satisfies Record<string, Config>
 
@@ -41,6 +45,13 @@ const CASES: { group: string, config: keyof typeof CONFIGS, formats?: Format[], 
     '<p>a <img src="b.png" alt="B"> c</p>',
     '<a href="/y">t<img src="a.png" alt="A"></a>',
     '<ul><li><a href="/z"><img src="a.png"></a></li><li>b</li></ul>',
+    '<p>a <a href="/x"></a> b</p>',
+    '<details><a href="/x"><img src="a.png"></a></details>',
+    '<details><a href="/x">t<img src="a.png"></a></details>',
+  ] },
+  { group: 'no-images-override', config: 'noImagesOverride', formats: ['markdown', 'text'], html: [
+    '<p>a <img src="b.png" alt="B"> c</p>',
+    '<a href="/x"><img src="a.png"></a><p>hi</p>',
   ] },
   { group: 'fm-empty-block', config: 'frontmatter', html: ['<head></head><p>x</p>', '<head>', '<head>e'] },
   { group: 'fm-empty-block', config: 'minimal', html: ['<head>', '<head>e'] },

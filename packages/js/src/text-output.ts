@@ -274,6 +274,9 @@ function newlineConfig(node: ElementNode, depthMap: Uint16Array, options: Engine
 }
 
 function elementOutput(node: ElementNode, eventType: number, state: TextState): string | undefined {
+  // `images: false` drops an image whatever an override would have written.
+  if (node.tagId === TAG_IMG && state.options.images === false)
+    return undefined
   const override = state.options.tagOverrides?.[node.name]
   if (override && typeof override !== 'string') {
     const output = eventType === NodeEventEnter ? override.enter : override.exit

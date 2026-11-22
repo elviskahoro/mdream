@@ -381,6 +381,11 @@ struct LinkOutputState {
   /// This anchor wrote its own `[`. Without it the exit's forward scan reaches
   /// past the link into the text and rewrites whatever bracket it finds there.
   bracket_emitted: bool,
+  /// `dropImages` removed an image inside this link.
+  image_dropped: bool,
+  /// Length of the opening tag a raw-HTML anchor wrote under `dropImages`, whose
+  /// start `bracket_pos` then holds so a stream keeps the tag back.
+  raw_open_len: usize,
   /// A link `begin_link` opened and its `end_link` has not run yet. The default
   /// (and a popped-when-empty result) is `false`, so a closed link can never be
   /// mistaken for an enclosing one when the next link opens.
@@ -709,6 +714,9 @@ const CLEAN_SELF_LINK_HEADINGS: u8 = 8;
 const CLEAN_EMPTY_IMAGES: u8 = 16;
 const CLEAN_EMPTY_LINK_TEXT: u8 = 32;
 const CLEAN_DROP_IMAGES: u8 = 64;
+/// `clean.emptyLinkText` was asked for, as opposed to enabled only so `dropImages` can
+/// remove links its dropped images emptied.
+const CLEAN_EMPTY_LINK_TEXT_EXPLICIT: u8 = 128;
 
 const SCRIPT_DATA: u8 = 0;
 const SCRIPT_DATA_ESCAPED: u8 = 1;
@@ -1754,7 +1762,7 @@ impl ConvertState {
         flags |= CLEAN_EMPTY_IMAGES;
       }
       if clean.empty_link_text {
-        flags |= CLEAN_EMPTY_LINK_TEXT;
+        flags |= CLEAN_EMPTY_LINK_TEXT | CLEAN_EMPTY_LINK_TEXT_EXPLICIT;
       }
       s.clean_flags = flags;
     }
