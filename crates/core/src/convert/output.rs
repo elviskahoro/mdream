@@ -2758,17 +2758,22 @@ impl ConvertState {
             .get("alt")
             .is_none_or(|alt| alt.chars().all(is_ecmascript_whitespace))))
     {
-      if self.clean_flags() & CLEAN_DROP_IMAGES != 0 {
-        if self.link.open && self.depth_map[TAG_A as usize] > 0 {
-          self.link.image_dropped = true;
-        }
+      if self.clean_flags() & CLEAN_DROP_IMAGES != 0
+        && self.link.open
+        && self.depth_map[TAG_A as usize] > 0
+      {
+        self.link.image_dropped = true;
       }
       self.last_node_is_inline = is_inline;
       return;
     }
 
-    if self.link.raw_open_len != 0 && enter_is_literal
-      && output.as_deref().is_some_and(|s| s.bytes().any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r')))
+    if self.link.raw_open_len != 0
+      && enter_is_literal
+      && output.as_deref().is_some_and(|s| {
+        s.bytes()
+          .any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r'))
+      })
     {
       self.link.raw_has_text = true;
       self.link.empty_text_pending = false;
@@ -3719,8 +3724,12 @@ impl ConvertState {
     if !plain_text!(self) && self.pre_fence_pending && tag_id != Some(TAG_PRE) && has_override {
       self.flush_pre_fence();
     }
-    if self.link.raw_open_len != 0 && has_override
-      && output.as_deref().is_some_and(|s| s.bytes().any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r')))
+    if self.link.raw_open_len != 0
+      && has_override
+      && output.as_deref().is_some_and(|s| {
+        s.bytes()
+          .any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r'))
+      })
     {
       self.link.raw_has_text = true;
       self.link.empty_text_pending = false;
@@ -4461,7 +4470,11 @@ impl ConvertState {
         }
       }
     }
-    if self.link.raw_open_len != 0 && text.bytes().any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r')) {
+    if self.link.raw_open_len != 0
+      && text
+        .bytes()
+        .any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r'))
+    {
       self.link.raw_has_text = true;
       self.link.empty_text_pending = false;
     }

@@ -5392,20 +5392,29 @@ fn clean_image_no_alt_attr_stripped() {
 #[test]
 fn clean_empty_images_preserves_empty_link() {
   let options = HtmlToMarkdownOptions {
-    clean: Some(CleanConfig { empty_images: true, ..Default::default() }),
+    clean: Some(CleanConfig {
+      empty_images: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
-  assert_eq!(html_to_markdown(r#"<a href="/x"><img src="a.png"></a>"#, options), "[](/x)");
+  assert_eq!(
+    html_to_markdown(r#"<a href="/x"><img src="a.png"></a>"#, options),
+    "[](/x)"
+  );
 }
 
 #[test]
 fn drop_images_suppresses_exit_overrides() {
   let options = HtmlToMarkdownOptions {
     drop_images: true,
-    plugins: Some(PluginConfig::default().with_tag_override("img", TagOverrideConfig {
-      exit: Some("EXIT".into()),
-      ..Default::default()
-    })),
+    plugins: Some(PluginConfig::default().with_tag_override(
+      "img",
+      TagOverrideConfig {
+        exit: Some("EXIT".into()),
+        ..Default::default()
+      },
+    )),
     ..Default::default()
   };
   let html = r#"<p>a<img src="a.png">b</p>"#;
@@ -5433,8 +5442,14 @@ fn drop_images_removes_images_and_image_only_links() {
       r#"<details><a href="/x"><img src="a.png"></a></details>"#,
       "<details></details>",
     ),
-    (r#"<details><a href="/x"><sub><img src="x"></sub></a></details>"#, "<details></details>"),
-    (r#"<details><a href="/x"><sub>text<img src="x"></sub></a></details>"#, r#"<details><a href="/x"><sub>text</sub></a></details>"#),
+    (
+      r#"<details><a href="/x"><sub><img src="x"></sub></a></details>"#,
+      "<details></details>",
+    ),
+    (
+      r#"<details><a href="/x"><sub>text<img src="x"></sub></a></details>"#,
+      r#"<details><a href="/x"><sub>text</sub></a></details>"#,
+    ),
     (
       r#"<details><a href="/x">t<img src="a.png"></a></details>"#,
       r#"<details><a href="/x">t</a></details>"#,
@@ -5456,7 +5471,10 @@ fn drop_images_removes_images_and_image_only_links() {
 
 #[test]
 fn drop_images_holds_raw_anchor_with_wrapper_markup() {
-  let options = HtmlToMarkdownOptions { drop_images: true, ..Default::default() };
+  let options = HtmlToMarkdownOptions {
+    drop_images: true,
+    ..Default::default()
+  };
   let mut processor = MarkdownStreamProcessor::new(options);
   let mut output = processor.process_chunk(r#"<details><a href="/x">"#);
   for _ in 0..1000 {
@@ -5474,11 +5492,14 @@ fn drop_images_preserves_raw_anchor_with_override_output() {
   for enter in [true, false] {
     let options = HtmlToMarkdownOptions {
       drop_images: true,
-      plugins: Some(PluginConfig::default().with_tag_override("span", TagOverrideConfig {
-        enter: enter.then(|| "label".into()),
-        exit: (!enter).then(|| "label".into()),
-        ..Default::default()
-      })),
+      plugins: Some(PluginConfig::default().with_tag_override(
+        "span",
+        TagOverrideConfig {
+          enter: enter.then(|| "label".into()),
+          exit: (!enter).then(|| "label".into()),
+          ..Default::default()
+        },
+      )),
       ..Default::default()
     };
     assert_eq!(html_to_markdown(html, options.clone()), expected);
@@ -5494,7 +5515,10 @@ fn drop_images_preserves_raw_anchor_with_override_output() {
 
 #[test]
 fn drop_images_preserves_released_raw_anchor() {
-  let options = HtmlToMarkdownOptions { drop_images: true, ..Default::default() };
+  let options = HtmlToMarkdownOptions {
+    drop_images: true,
+    ..Default::default()
+  };
   let prefix = format!(r#"<details><a href="/x">{}"#, "visible text ".repeat(1000));
   let suffix = format!("{}<img src=\"x\"></a></details>", " &nbsp;".repeat(20));
   let html = format!("{prefix}more text <span></span>{suffix}");
