@@ -55,6 +55,23 @@ describe('empty headings', () => {
     }
   })
 
+  it('preserves plugin output for an empty heading', async () => {
+    const options = { plugins: [{ onNodeEnter: (node: { name: string }) => node.name === 'h1' ? 'Custom' : undefined }] }
+    const html = '<h1></h1>'
+    expect(htmlToMarkdown(html, options)).toBe('Custom')
+    const input = new ReadableStream<string>({
+      start(controller) {
+        for (const char of html)
+          controller.enqueue(char)
+        controller.close()
+      },
+    })
+    let output = ''
+    for await (const chunk of streamHtmlToMarkdown(input, options))
+      output += chunk
+    expect(output).toBe('Custom')
+  })
+
   it('escapes a literal blockquote marker after an empty nested heading', async () => {
     const html = '<li><ul><li><ul><li><h3></h3><e><figcaption><code><em></figcaption><div><r></ul>>'
     expect(htmlToMarkdown(html)).toMatch(/- \\>$/)

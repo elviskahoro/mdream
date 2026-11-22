@@ -4293,7 +4293,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
         }
       }
     }
-    if (eventType === NodeEventEnter && tagId >= TAG_H1 && tagId <= TAG_H6 && output && !handler?.literalEnter
+    if (eventType === NodeEventEnter && tagId >= TAG_H1 && tagId <= TAG_H6 && output && !handler?.literalEnter && !hasPluginOutput
       && !state.depthMap[TAG_A] && !isInsideTableCell(state)) {
       headings.push({ element, start: outputStart, content: buff.length, scanned: buff.length, scannedChars: 0 })
     }
