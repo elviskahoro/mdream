@@ -5433,6 +5433,8 @@ fn drop_images_removes_images_and_image_only_links() {
       r#"<details><a href="/x"><img src="a.png"></a></details>"#,
       "<details></details>",
     ),
+    (r#"<details><a href="/x"><sub><img src="x"></sub></a></details>"#, "<details></details>"),
+    (r#"<details><a href="/x"><sub>text<img src="x"></sub></a></details>"#, r#"<details><a href="/x"><sub>text</sub></a></details>"#),
     (
       r#"<details><a href="/x">t<img src="a.png"></a></details>"#,
       r#"<details><a href="/x">t</a></details>"#,
@@ -5450,6 +5452,19 @@ fn drop_images_removes_images_and_image_only_links() {
       assert_eq!(out, expected, "{html} split at {split}");
     }
   }
+}
+
+#[test]
+fn drop_images_holds_raw_anchor_with_wrapper_markup() {
+  let options = HtmlToMarkdownOptions { drop_images: true, ..Default::default() };
+  let mut processor = MarkdownStreamProcessor::new(options);
+  let mut output = processor.process_chunk(r#"<details><a href="/x">"#);
+  for _ in 0..1000 {
+    output.push_str(&processor.process_chunk("<sub></sub>"));
+  }
+  output.push_str(&processor.process_chunk(r#"<sub><img src="x"></sub></a></details>"#));
+  output.push_str(&processor.finish());
+  assert_eq!(output, "<details></details>");
 }
 
 #[test]

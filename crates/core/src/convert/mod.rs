@@ -386,6 +386,7 @@ struct LinkOutputState {
   /// Length of the opening tag a raw-HTML anchor wrote under `dropImages`, whose
   /// start `bracket_pos` then holds so a stream keeps the tag back.
   raw_open_len: usize,
+  raw_has_text: bool,
   /// A link `begin_link` opened and its `end_link` has not run yet. The default
   /// (and a popped-when-empty result) is `false`, so a closed link can never be
   /// mistaken for an enclosing one when the next link opens.

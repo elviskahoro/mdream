@@ -8,6 +8,8 @@ const CASES: [string, string][] = [
   ['<a href="/y">t<img src="a.png"></a>', '[t](/y)'],
   ['<details><a href="/x"><img src="a.png"></a></details>', '<details></details>'],
   ['<details><a href="/x"><strong><img src="x"></strong></a></details>', '<details></details>'],
+  ['<details><a href="/x"><sub><img src="x"></sub></a></details>', '<details></details>'],
+  ['<details><a href="/x"><sub>text<img src="x"></sub></a></details>', '<details><a href="/x"><sub>text</sub></a></details>'],
   ['<details><a href="/x">t<img src="a.png"></a></details>', '<details><a href="/x">t</a></details>'],
 ]
 
@@ -31,6 +33,21 @@ describe('images: false', () => {
       }
     })
   }
+
+  it('holds a raw anchor containing only wrapper markup until its image is dropped', async () => {
+    const html = `<details><a href="/x">${'<sub></sub>'.repeat(1000)}<sub><img src="x"></sub></a></details>`
+    const stream = new ReadableStream<string>({
+      start(controller) {
+        for (let i = 0; i < html.length; i += 100)
+          controller.enqueue(html.slice(i, i + 100))
+        controller.close()
+      },
+    })
+    let output = ''
+    for await (const part of streamHtmlToMarkdown(stream, { images: false }))
+      output += part
+    expect(output).toBe('<details></details>')
+  })
 
   it('streams a long raw HTML anchor before it closes', async () => {
     const prefix = `<details><a href="/x">${'visible text '.repeat(1000)}`

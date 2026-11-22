@@ -3278,10 +3278,7 @@ impl ConvertState {
       && !self.link.hold_released
       && self.link.image_dropped
       && self.link.raw_open_len != 0
-      && self
-        .buffer
-        .get(self.link.bracket_pos + self.link.raw_open_len..)
-        .is_some_and(|rest| rest.trim().is_empty())
+      && !self.link.raw_has_text
     {
       self.truncate_buffer(self.link.bracket_pos);
       self.end_link();
@@ -4259,6 +4256,7 @@ impl ConvertState {
     keeps_pending: impl FnOnce() -> bool,
   ) {
     if self.link.empty_text_pending
+      && self.link.raw_open_len == 0
       && !keeps_pending()
       && self
         .buffer
@@ -4449,6 +4447,10 @@ impl ConvertState {
           marker.decoded_blank = true;
         }
       }
+    }
+    if self.link.raw_open_len != 0 && !text.trim().is_empty() {
+      self.link.raw_has_text = true;
+      self.link.empty_text_pending = false;
     }
     self.last_text_node_contains_whitespace = contains_whitespace;
     self.has_last_text_node = true;

@@ -2118,6 +2118,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
   // Fragment of an open raw-HTML anchor's opening tag, held so an image-only one can go.
   let rawLinkFragment = -1
   let imageDroppedInRawLink = false
+  let rawLinkHasText = false
   let openLinkHeadingBreak = false
   let openLinkCaptionBreakRun = 0
   let openLinkCaptionFlags: Uint8Array | undefined
@@ -3218,7 +3219,10 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     }
 
     if (node.type === TEXT_NODE && eventType === NodeEventEnter) {
+      const start = buff.length
       processTextNode(node as TextNode, lastNode, lastChar)
+      if (rawLinkFragment >= 0 && buff.length > start && hasNonWhitespace((node as TextNode).value))
+        rawLinkHasText = true
       return
     }
 
@@ -3239,9 +3243,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     if (tagId === TAG_A && eventType === NodeEventExit && rawLinkFragment >= 0) {
       const start = rawLinkFragment
       rawLinkFragment = -1
-      let blank = imageDroppedInRawLink && start < buff.length
-      for (let index = start + 1; blank && index < buff.length; index++)
-        blank = !hasNonWhitespace(buff[index]!)
+      const blank = imageDroppedInRawLink && !rawLinkHasText && start < buff.length
       if (blank) {
         state.outputPositions?.replace(start, buff.length, [])
         buff.length = start
@@ -3725,6 +3727,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
         if (options.images === false && rawHtmlLink) {
           rawLinkFragment = buff.length
           imageDroppedInRawLink = false
+          rawLinkHasText = false
         }
       }
       else {
@@ -4541,19 +4544,8 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     // every hold, so scan and trim that position once. The final call drops
     // every hold: a fence whose owner reset the open flag before exiting can
     // never be rewritten, and holding it suppressed the whole output.
-    if (!final && rawLinkFragment >= 0) {
-      const scanEnd = Math.min(
-        state.buffer.length,
-        openMarkerCount ? openMarkers[0]! >> 3 : Infinity,
-        gfmLifecycle.openCodeSpans[0]?.fragment ?? Infinity,
-      )
-      for (let index = rawLinkFragment + 1; index < scanEnd; index++) {
-        if (hasNonWhitespace(state.buffer[index]!)) {
-          rawLinkFragment = -1
-          break
-        }
-      }
-    }
+    if (!final && rawLinkFragment >= 0 && rawLinkHasText)
+      rawLinkFragment = -1
     let heldFragment = final
       ? Infinity
       : Math.min(
