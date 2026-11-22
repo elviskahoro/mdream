@@ -98,7 +98,7 @@ Top-level keys (all optional):
 | Key             | Type  | Default     | Description |
 | --------------- | ----- | ----------- | ----------- |
 | `origin`        | `str` | — | Base URL used to resolve relative links and image sources. |
-| `clean`         | `dict` | — | Post-processing cleanup rules (see below). |
+| `clean`         | `dict` | `{"empty_link_text": True}` | Post-processing cleanup rules (see below). Pass `None` to disable all cleanup. |
 | `plugins`       | `dict` | — | Plugin configuration (see below). |
 | `images`        | `bool` | `True` | Pass `False` to omit images and drop links left with no text, such as image-only links. Markdown and text output. |
 | `wrap_width`    | `int` | `0` | Hard-wrap prose at this many characters, breaking on word boundaries. `0` disables wrapping. Code, tables, and headings are never wrapped. |
@@ -107,7 +107,7 @@ Top-level keys (all optional):
 
 ### `clean`
 
-All flags are `bool`, `false` by default:
+All flags are `bool`, `false` by default except `empty_link_text`:
 
 | Key                  | Description |
 | -------------------- | ----------- |
@@ -117,7 +117,7 @@ All flags are `bool`, `false` by default:
 | `redundant_links`    | Strip links where the text equals the URL: `[https://x.com](https://x.com)` → `https://x.com`. |
 | `self_link_headings` | Strip self-referencing heading anchors: `## [Title](#title)` → `## Title`. |
 | `empty_images`       | Strip images with no alt text: `![](url)` → nothing. |
-| `empty_link_text`    | Drop links that produce no visible text: `[](url)` → nothing. |
+| `empty_link_text`    | Drop links that produce no visible text: `[](url)` → nothing. **On by default**; pass `False` to keep them. |
 
 ### `plugins`
 

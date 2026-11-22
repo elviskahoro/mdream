@@ -32,9 +32,22 @@ fn none_options_yield_defaults() {
     assert!(opts.origin.is_none());
     assert_eq!(opts.wrap_width, 0);
     assert_eq!(opts.max_node_bytes, 0);
-    assert!(opts.clean.is_none());
+    let clean = opts.clean.expect("default clean");
+    assert!(clean.empty_link_text);
+    assert!(!clean.urls && !clean.empty_links && !clean.empty_images);
     assert!(opts.plugins.is_none());
     assert_eq!(format, OutputFormat::Markdown);
+  });
+}
+
+#[test]
+fn empty_link_text_can_be_opted_out() {
+  Python::attach(|py| {
+    let (opts, _) = parse_options(Some(&dict_of(py, r#"{"clean": {"empty_link_text": False}}"#)))
+      .expect("options should parse");
+    assert!(!opts.clean.expect("clean").empty_link_text);
+    let (opts, _) = parse_options(Some(&dict_of(py, r#"{"clean": None}"#))).expect("options");
+    assert!(opts.clean.is_none());
   });
 }
 
@@ -187,6 +200,7 @@ fn full_options_dict_maps_field_for_field() {
     let clean = opts.clean.expect("clean");
     assert!(clean.urls && clean.fragments);
     assert!(!clean.empty_links);
+    assert!(clean.empty_link_text);
     let plugins = opts.plugins.expect("plugins");
     let filter = plugins.filter.expect("filter");
     assert_eq!(filter.exclude.as_deref(), Some(&["nav".to_string()][..]));
