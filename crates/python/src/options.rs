@@ -388,9 +388,9 @@ fn opt_spacing(name: &str, value: &Bound<'_, PyAny>) -> PyResult<Option<[u8; 2]>
   let list = value
     .cast::<PyList>()
     .map_err(|_| type_error(name, "a pair of integers [before, after]"))?;
-  if list.len() < 2 {
+  if list.len() != 2 {
     return Err(PyValueError::new_err(format!(
-      "'{name}' must have two entries [before, after]"
+      "'{name}' must have exactly two entries [before, after]"
     )));
   }
   let mut pair = [0u8; 2];

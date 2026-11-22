@@ -62,3 +62,10 @@ def test_tag_override_alias_unknown_name_is_value_error():
 def test_camel_case_keys_are_rejected():
     with pytest.raises(ValueError, match="Unknown option key 'wrapWidth'"):
         mdream.convert("<p>x</p>", {"wrapWidth": 80})
+
+
+@pytest.mark.parametrize("spacing", [[1], [1, 2, 3]])
+def test_spacing_must_be_exactly_two_entries(spacing):
+    options = {"plugins": {"tag_overrides": {"x": {"spacing": spacing}}}}
+    with pytest.raises(ValueError, match="exactly two entries"):
+        mdream.convert("<p>x</p>", options)
