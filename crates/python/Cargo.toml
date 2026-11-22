@@ -28,7 +28,10 @@ extension-module = [ "pyo3/extension-module" ]
 [dev-dependencies]
 # Starts an interpreter for `Python::attach` in unit tests (never combined
 # with `extension-module`, which test builds do not enable).
-pyo3 = { version = "0.30.1", features = [ "abi3-py310", "auto-initialize" ] }
+pyo3 = { version = "0.30.1", features = [
+  "abi3-py310",
+  "auto-initialize"
+] }
 
 [lints]
 workspace = true

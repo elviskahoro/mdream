@@ -1,10 +1,10 @@
 [build-system]
-requires = ["maturin>=1,<2"]
+requires = [ "maturin>=1,<2" ]
 build-backend = "maturin"
 
 [project]
 name = "mdream"
-dynamic = ["version"]
+dynamic = [ "version" ]
 description = "Fastest HTML to Markdown converter with streaming and plugin support"
 license = "MIT"
 requires-python = ">=3.10"
@@ -27,5 +27,5 @@ classifiers = [
 
 [tool.maturin]
 module-name = "mdream._mdream"
-features = ["extension-module"]
+features = [ "extension-module" ]
 python-source = "python"
