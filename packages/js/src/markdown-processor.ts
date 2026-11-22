@@ -4235,7 +4235,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
           noteBufferRewrite(state)
           droppedHeading = true
           // The exit's break was sized against the heading's own prefix.
-          if (output && !handler?.literalExit) {
+          if (output && !handler?.literalExit && !hasPluginOutput) {
             if (configuredNewLines > 0)
               trimTrailingSpaces(buff)
             const owed = buff.length === 0 && !hasYieldedContent ? 0 : Math.max(0, configuredNewLines - newlineRunBefore(buff, buff.length))

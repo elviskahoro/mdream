@@ -55,8 +55,8 @@ describe('empty headings', () => {
     }
   })
 
-  it('preserves plugin output for an empty heading', async () => {
-    const options = { plugins: [{ onNodeEnter: (node: { name: string }) => node.name === 'h1' ? 'Custom' : undefined }] }
+  it.each(['onNodeEnter', 'onNodeExit'] as const)('preserves %s output for an empty heading', async (hook) => {
+    const options = { plugins: [{ [hook]: (node: { name: string }) => node.name === 'h1' ? 'Custom' : undefined }] }
     const html = '<h1></h1>'
     expect(htmlToMarkdown(html, options)).toBe('Custom')
     const input = new ReadableStream<string>({
