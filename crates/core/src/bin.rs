@@ -17,6 +17,7 @@ fn main() -> io::Result<()> {
   let mut origin: Option<String> = None;
   let mut verbose = false;
   let mut clean_urls = false;
+  let mut no_images = false;
   let mut format = OutputFormat::default();
 
   let mut i = 1;
@@ -30,6 +31,7 @@ fn main() -> io::Result<()> {
       }
       "--verbose" | "-v" => verbose = true,
       "--clean-urls" => clean_urls = true,
+      "--no-images" => no_images = true,
       "--format" => {
         i += 1;
         if i < args.len() {
@@ -60,6 +62,7 @@ fn main() -> io::Result<()> {
         eprintln!("  -o, --origin <URL>  Base URL for resolving relative links");
         eprintln!("  -v, --verbose       Print conversion stats to stderr");
         eprintln!("  --clean-urls        Strip tracking query params (utm_*, fbclid, etc.)");
+        eprintln!("  --no-images         Omit images and links left empty by them");
         eprintln!(
           "  --format <format>   Output format: {}",
           FORMATS.join(", ")
@@ -83,6 +86,7 @@ fn main() -> io::Result<()> {
       urls: true,
       ..Default::default()
     }),
+    drop_images: no_images,
     ..Default::default()
   };
 

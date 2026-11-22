@@ -23,6 +23,7 @@ use mdream::types::{
 const TOP_LEVEL_KEYS: &[&str] = &[
   "clean",
   "format",
+  "images",
   "max_node_bytes",
   "origin",
   "plugins",
@@ -78,6 +79,7 @@ pub fn parse_options(
       "clean" => opts.clean = parse_clean(&value)?,
       "plugins" => opts.plugins = parse_plugins(&value)?,
       "wrap_width" => opts.wrap_width = opt_usize("wrap_width", &value)?,
+      "images" => opts.drop_images = !opt_bool("images", &value)?,
       "format" => format = Some(parse_format(&value)?),
       "max_node_bytes" => opts.max_node_bytes = opt_usize("max_node_bytes", &value)?,
       _ => return Err(unknown_key(key, TOP_LEVEL_KEYS)),

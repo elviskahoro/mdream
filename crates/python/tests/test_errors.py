@@ -8,7 +8,7 @@ import mdream
 
 def test_unknown_key_at_each_level():
     cases = [
-        ({"nope": 1}, "Unknown option key 'nope'; valid keys are: clean, format, max_node_bytes, origin, plugins, wrap_width"),
+        ({"nope": 1}, "Unknown option key 'nope'; valid keys are: clean, format, images, max_node_bytes, origin, plugins, wrap_width"),
         ({"clean": {"nope": True}}, "valid keys are: empty_images, empty_link_text, empty_links, fragments, redundant_links, self_link_headings, urls"),
         ({"plugins": {"nope": 1}}, "valid keys are: extraction, filter, frontmatter, isolate_main, tag_overrides, tailwind"),
         ({"plugins": {"filter": {"nope": 1}}}, "valid keys are: exclude, include, process_children"),

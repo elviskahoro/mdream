@@ -59,6 +59,7 @@ export interface HtmlToMarkdownOptions {
   clean?: CleanOptionsNapi
   plugins?: PluginOptions
   wrapWidth?: number
+  images?: boolean
   format?: "markdown" | "text" | "html"
 }
 

@@ -46,7 +46,9 @@ fn unknown_top_level_key_is_rejected() {
     let msg = err.to_string();
     assert!(msg.contains("Unknown option key 'nope'"), "{msg}");
     assert!(
-      msg.contains("valid keys are: clean, format, max_node_bytes, origin, plugins, wrap_width"),
+      msg.contains(
+        "valid keys are: clean, format, images, max_node_bytes, origin, plugins, wrap_width"
+      ),
       "{msg}"
     );
   });

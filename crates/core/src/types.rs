@@ -848,6 +848,9 @@ pub struct HtmlToMarkdownOptions {
   /// set to `0`. Code (`<pre>`/`<code>`), tables, and headings are never
   /// wrapped.
   pub wrap_width: usize,
+  /// Omit `<img>` from the output and drop links left with no text, such as
+  /// image-only links. Markdown and plain-text output only.
+  pub drop_images: bool,
   /// Cap on the bytes one construct may buffer — a text node, a tag, an open code
   /// block or inline code span, a table row's columns, or the script text an
   /// extraction reads; `0` (the default) is unlimited. Content past the cap is
@@ -941,6 +944,19 @@ impl HtmlToMarkdownOptions {
   #[must_use]
   pub fn with_wrap_width(mut self, width: usize) -> Self {
     self.wrap_width = width;
+    self
+  }
+
+  /// Omit images, and drop the links they leave empty.
+  ///
+  /// ```rust
+  /// use mdream::HtmlToMarkdownOptions;
+  ///
+  /// let opts = HtmlToMarkdownOptions::default().with_drop_images(true);
+  /// ```
+  #[must_use]
+  pub fn with_drop_images(mut self, drop: bool) -> Self {
+    self.drop_images = drop;
     self
   }
 
