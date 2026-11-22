@@ -2758,8 +2758,10 @@ impl ConvertState {
             .get("alt")
             .is_none_or(|alt| alt.chars().all(is_ecmascript_whitespace))))
     {
-      if self.link.open && self.depth_map[TAG_A as usize] > 0 {
-        self.link.image_dropped = true;
+      if self.clean_flags() & CLEAN_DROP_IMAGES != 0 {
+        if self.link.open && self.depth_map[TAG_A as usize] > 0 {
+          self.link.image_dropped = true;
+        }
       }
       self.last_node_is_inline = is_inline;
       return;
@@ -3654,7 +3656,9 @@ impl ConvertState {
       open_void && override_config.is_some_and(Self::void_spacing_follows_enter);
 
     // Check override exit string
-    let has_override = if let Some(ov) = override_config {
+    let has_override = if tag_id == Some(TAG_IMG) && self.clean_flags() & CLEAN_DROP_IMAGES != 0 {
+      true
+    } else if let Some(ov) = override_config {
       if let Some(ref s) = ov.exit {
         output = Some(Cow::Owned(s.clone()));
         true

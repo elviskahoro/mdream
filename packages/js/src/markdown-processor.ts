@@ -4539,6 +4539,14 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     // every hold, so scan and trim that position once. The final call drops
     // every hold: a fence whose owner reset the open flag before exiting can
     // never be rewritten, and holding it suppressed the whole output.
+    if (!final && rawLinkFragment >= 0) {
+      for (let index = rawLinkFragment + 1; index < state.buffer.length; index++) {
+        if (hasNonWhitespace(state.buffer[index]!)) {
+          rawLinkFragment = -1
+          break
+        }
+      }
+    }
     let heldFragment = final
       ? Infinity
       : Math.min(
@@ -4633,7 +4641,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
         || state.outputPositions || state.blockquotes.length
         || gfmLifecycle.openCodeSpans.length || openLinkFragment !== -1
         || captionFrameCount || literalOpeners.length || state.codeFence
-        || state.emptyItemFragment !== undefined) {
+        || state.emptyItemFragment !== undefined || rawLinkFragment >= 0) {
         return false
       }
       const removed = fragment - 1

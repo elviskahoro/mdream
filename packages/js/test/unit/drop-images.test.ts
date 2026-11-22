@@ -31,6 +31,24 @@ describe('images: false', () => {
     })
   }
 
+  it('streams a long raw HTML anchor before it closes', async () => {
+    const prefix = `<details><a href="/x">${'visible text '.repeat(1000)}`
+    let controller!: ReadableStreamDefaultController<string>
+    const input = new ReadableStream<string>({ start(value) { controller = value } })
+    const iterator = streamHtmlToMarkdown(input, { images: false })[Symbol.asyncIterator]()
+    controller.enqueue(prefix)
+    const first = await iterator.next()
+    controller.enqueue('more text <img src="x">')
+    const second = await iterator.next()
+    expect((first.value || '') + (second.value || '')).toContain('<a href="/x">')
+    expect(second.value!.length).toBeGreaterThan(1000)
+    controller.close()
+    let result = (first.value || '') + (second.value || '')
+    for await (const part of { [Symbol.asyncIterator]: () => iterator })
+      result += part
+    expect(result).toBe(htmlToMarkdown(`${prefix}more text <img src="x">`, { images: false }))
+  })
+
   it('suppresses an image override', () => {
     const tagOverrides = { img: { enter: 'IMG' } }
     expect(htmlToMarkdown('<p>a <img src="b.png"> c</p>', { images: false, tagOverrides })).toBe('a c')

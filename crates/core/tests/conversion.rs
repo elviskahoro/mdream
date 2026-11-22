@@ -5389,6 +5389,30 @@ fn clean_image_no_alt_attr_stripped() {
   );
 }
 
+#[test]
+fn clean_empty_images_preserves_empty_link() {
+  let options = HtmlToMarkdownOptions {
+    clean: Some(CleanConfig { empty_images: true, ..Default::default() }),
+    ..Default::default()
+  };
+  assert_eq!(html_to_markdown(r#"<a href="/x"><img src="a.png"></a>"#, options), "[](/x)");
+}
+
+#[test]
+fn drop_images_suppresses_exit_overrides() {
+  let options = HtmlToMarkdownOptions {
+    drop_images: true,
+    plugins: Some(PluginConfig::default().with_tag_override("img", TagOverrideConfig {
+      exit: Some("EXIT".into()),
+      ..Default::default()
+    })),
+    ..Default::default()
+  };
+  let html = r#"<p>a<img src="a.png">b</p>"#;
+  assert_eq!(html_to_markdown(html, options.clone()), "ab");
+  assert_eq!(html_to_text(html, options), "ab");
+}
+
 // ── drop_images ──
 
 #[test]
