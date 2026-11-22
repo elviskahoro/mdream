@@ -31,3 +31,9 @@ def test_flatten_tables_streaming_matches_one_shot():
     joined = "".join(stream.process_chunk(LAYOUT[i : i + 5]) for i in range(0, len(LAYOUT), 5))
     joined += stream.finish()
     assert joined == mdream.html_to_markdown(LAYOUT, opts)
+
+
+def test_flatten_tables_keeps_a_row_on_one_line():
+    html = "<table><tr><td>Subtotal</td><td>$16.75</td></tr><tr><td>Tax</td><td>$1.58</td></tr></table>"
+    lines = [l.strip() for l in mdream.html_to_markdown(html, mdream.flatten_tables_options()).split("\n") if l.strip()]
+    assert lines == ["Subtotal  $16.75", "Tax  $1.58"]
