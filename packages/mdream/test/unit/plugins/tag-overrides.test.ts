@@ -25,7 +25,7 @@ const SELF_CLOSING_CASES: [string, Record<string, any>, string][] = [
   ['<ul><li><hr>x</hr></li></ul>', { hr: { isSelfClosing: false } }, '- ***\n\n  x'],
   ['<ul><li>a<hr>x</hr>b</li></ul>', { hr: { isSelfClosing: false } }, '- a\n\n  ---\n\n  xb'],
   ['<hr>a</hr>1) x', { hr: { isSelfClosing: false } }, '---\n\na1) x'],
-  ['<br><h1></h1></br>b c', { br: { isSelfClosing: false } }, '#\n\nb c'],
+  ['<br><h1>h</h1></br>b c', { br: { isSelfClosing: false } }, '# h\n\nb c'],
   ['<p>a</p><br><h2>x</h2>| x |', { br: { isSelfClosing: false } }, 'a\n\n  \n\n## x\n\n| x |'],
   ['<p>a</p><hr>x<p>b</p>', { hr: { isSelfClosing: false } }, 'a\n\n---\n\nx\n\nb'],
   ['<p>a<hr></p><p>b</p>', { hr: { isSelfClosing: false } }, 'a\n\n---\n\nb'],

@@ -1795,8 +1795,8 @@ fn skipped_pre_closes_surviving_child_fence_without_leaking_its_own_exit() {
   };
 
   let unopened = "<pre id=><h4 id=>";
-  assert_eq!(html_to_markdown(unopened, options.clone()), "####");
-  assert_eq!(stream_chunks(unopened, 3, options.clone()), "####");
+  assert_eq!(html_to_markdown(unopened, options.clone()), "");
+  assert_eq!(stream_chunks(unopened, 3, options.clone()), "");
 
   for html in [
     "<pre id=><h4 id=><code id=>",
@@ -2370,34 +2370,28 @@ fn streaming_empty_heading_in_list_item_matches_one_shot() {
 #[test]
 fn streaming_block_after_empty_list_heading_keeps_its_boundary() {
   for (html, expected) in [
-    (
-      "<ul><li><h3></h3><div>Next</div></li></ul>",
-      "- ###\n\n  Next",
-    ),
-    (
-      "<ul><li><h3></h3><h2>Next</h2></li></ul>",
-      "- ###\n\n  ## Next",
-    ),
+    ("<ul><li><h3></h3><div>Next</div></li></ul>", "- Next"),
+    ("<ul><li><h3></h3><h2>Next</h2></li></ul>", "- ## Next"),
     (
       "<ol start=\"10\"><li><h3></h3><div>Next</div></li></ol>",
-      "10. ###\n\n    Next",
+      "10. Next",
     ),
     (
       "<ul><li>Parent<ul><li><h3></h3><div>Next</div></li></ul></li></ul>",
-      "- Parent\n  - ###\n\n    Next",
+      "- Parent\n  - Next",
     ),
     (
       "<blockquote><ul><li><h3></h3><div>Next</div></li></ul></blockquote>",
-      "> - ###\n>\n>   Next",
+      "> - Next",
     ),
-    ("<ul><li><h3></h3></li><li>Next</li></ul>", "- ###\n- Next"),
-    ("<ul><li><h3></h3></li></ul>", "- ###"),
-    ("<h3></h3><div>Next</div>", "###\n\nNext"),
+    ("<ul><li><h3></h3></li><li>Next</li></ul>", "-\n- Next"),
+    ("<ul><li><h3></h3></li></ul>", "-"),
+    ("<h3></h3><div>Next</div>", "Next"),
     ("<li>q<br>t<div>X", "- q  \n  t X"),
     ("<ul><li>Text #<div>Next</div></li></ul>", "- Text # Next"),
     (
       "<ul><li><h3></h3><span></span><div>Next</div></li></ul>",
-      "- ###\n\n  Next",
+      "- Next",
     ),
     (
       "<table><tr><td><ul><li><h3></h3><div>Next</div></li></ul></td></tr></table>",
@@ -2432,29 +2426,26 @@ fn streaming_heading_in_list_item_keeps_its_own_line() {
       "<ol><li>a<ol><li>b<ol><li>Intro <h3>T</h3></li></ol></li></ol></li></ol>",
       "1. a\n   1. b\n      1. Intro\n\n         ### T",
     ),
-    ("<ul><li><h3></h3>Text</li></ul>", "- ###\n\n  Text"),
+    ("<ul><li><h3></h3>Text</li></ul>", "- Text"),
     (
       "<ol><li><h1>T</h1>\nx</li><li>y</li></ol>",
       "1. # T\n\n   x\n2. y",
     ),
     (
       "<ul><li>a<ul><li>b<ul><li><h3></h3>c</li></ul></li></ul></li></ul>",
-      "- a\n  - b\n    - ###\n\n      c",
+      "- a\n  - b\n    - c",
     ),
     (
       "<ul><li><h3>Title</h3><strong>Text</strong></li></ul>",
       "- ### Title\n\n  **Text**",
     ),
-    (
-      "<ul><li><h3></h3><code>x</code></li></ul>",
-      "- ###\n\n  `x`",
-    ),
+    ("<ul><li><h3></h3><code>x</code></li></ul>", "- `x`"),
     ("<ul><li><h3>T</h3><em></em>x</li></ul>", "- ### T\n\n  x"),
     (
       "<ul><li><h3>T</h3><i class=\"icon\"></i></li><li>b</li></ul>",
       "- ### T\n- b",
     ),
-    ("<ul><li>x <h2></h2>  y</li></ul>", "- x\n\n  ##\n\n  y"),
+    ("<ul><li>x <h2></h2>  y</li></ul>", "- x y"),
     (
       "<blockquote><ul><li><h3>T</h3>x</li></ul></blockquote>",
       "> - ### T\n>\n>   x",
@@ -2591,7 +2582,7 @@ fn streaming_block_that_opens_a_list_code_block_stays_out_of_the_code() {
   for (html, expected) in [
     (
       "<ul><li><h1></h1><pre><div>x</div></pre></li></ul>",
-      "- #\n\n  ```\n  x\n  ```",
+      "- ```\n  x\n  ```",
     ),
     (
       "<ul><li>a<pre><p>x</p><p>y</p></pre></li></ul>",
@@ -4347,7 +4338,7 @@ fn streaming_heading_overrides_inside_list_code_keep_their_output() {
     (
       r#"<ul><li><code><h6>
 </h6><h3></h3>x</code></li></ul>"#,
-      "- `###### ### x`",
+      "- `### x`",
       "h3",
       TagOverrideConfig {
         enter: Some("### ".into()),
@@ -6851,39 +6842,39 @@ fn a_drain_inside_a_line_lead_keeps_block_line_checks_like_one_shot() {
     // Cut inside the nested item's indent.
     (
       "<ul><li>o<ul><li><h3>&#32;&#32;&#32;&#32;<a href=\"/y\"><p></li></ul></li></ul>",
-      "- o\n  - ###",
+      "- o\n  -",
       clean,
     ),
     (
       "<li><ul><li><ul><li><h3></h3><e><figcaption><code><em></figcaption><div><r></ul>>",
-      "-\n  -\n    - ###\n\n      \\>",
+      "-\n  -\n    - \\>",
       HtmlToMarkdownOptions::default(),
     ),
     // Cut just after the document's first list marker.
     (
       "<li><h3><strong><strong><strong><strong><strong><strong>",
-      "- ###",
+      "-",
       HtmlToMarkdownOptions::default(),
     ),
     (
       "<li><h6><strong>&#32 <g>&#32 &#32 </",
-      "- ######",
+      "-",
       HtmlToMarkdownOptions::default(),
     ),
     (
       "<ol start=\"10\"><li><h3><strong><strong><strong><strong><strong><strong>",
-      "10. ###",
+      "10.",
       HtmlToMarkdownOptions::default(),
     ),
     // Cut inside a nested item's marker line.
     (
       "<ul><li>o<ul><li><h3><strong><strong><strong><strong><strong><strong></h3></li></ul></li></ul>",
-      "- o\n  - ###",
+      "- o\n  -",
       HtmlToMarkdownOptions::default(),
     ),
     (
       "<ol start=\"7\"><li><ol start=\"42\"><li><h3><strong><strong><strong><strong><strong><strong>",
-      "7.\n   42. ###",
+      "7.\n   42.",
       HtmlToMarkdownOptions::default(),
     ),
   ] {
@@ -7024,5 +7015,35 @@ fn vertical_tab_hold_inside_emphasis_is_charged_to_the_node_cap() {
   assert!(expected.markdown.starts_with("**a**\u{b}  \n"));
   for width in [1, 7, 4096] {
     assert_eq!(stream_chunks(&html, width, opts.clone()), expected.markdown);
+  }
+}
+
+#[test]
+fn nonempty_unclosed_heading_streams_before_finish() {
+  let mut processor = MarkdownStreamProcessor::new(HtmlToMarkdownOptions::default());
+  let html = format!("<h1>{}", "<span>word</span>".repeat(1000));
+  assert!(processor.process_chunk(&html).contains("# word"));
+}
+
+#[test]
+fn empty_heading_with_unclosed_inline_markup_streams_like_one_shot() {
+  for html in ["<li><h3><em>", "<li><h3><a href=/u>"] {
+    assert_eq!(stream_chunks(html, 1, HtmlToMarkdownOptions::default()), html_to_markdown(html, HtmlToMarkdownOptions::default()));
+  }
+}
+
+#[test]
+fn empty_nested_heading_preserves_outer_heading() {
+  let html = "<h1><span><h2></h2></span>outer</h1>";
+  for width in 1..=5 {
+    assert_eq!(stream_chunks(html, width, HtmlToMarkdownOptions::default()), "# outer");
+  }
+}
+
+#[test]
+fn large_whitespace_only_heading_streams_like_one_shot() {
+  for suffix in ["</h1><p>body</p>", "text</h1>"] {
+    let html = format!("<h1>{}{suffix}", "<br>".repeat(12000));
+    assert_eq!(stream_chunks(&html, 64, HtmlToMarkdownOptions::default()), html_to_markdown(&html, HtmlToMarkdownOptions::default()));
   }
 }

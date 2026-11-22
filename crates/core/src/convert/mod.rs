@@ -1270,6 +1270,8 @@ pub struct ConvertState {
   in_heading: bool,
   /// Buffer position at heading start (for extracting heading text)
   heading_buffer_start: usize,
+  /// Open ATX heading: start, content, depth, and scanned offset.
+  heading_open: Vec<(usize, usize, usize, usize)>,
   #[cfg(feature = "html")]
   html_frames: Vec<HtmlFrame>,
 
@@ -1684,6 +1686,7 @@ impl ConvertState {
       fragment_links: Vec::new(),
       in_heading: false,
       heading_buffer_start: 0,
+      heading_open: Vec::new(),
       #[cfg(feature = "html")]
       html_frames: Vec::new(),
 
@@ -3301,6 +3304,9 @@ impl ConvertState {
   /// Record that buffer bytes from `offset` on were rewritten or removed.
   #[inline]
   pub(super) fn note_buffer_rewrite(&mut self, offset: usize) {
+    for heading in &mut self.heading_open {
+      heading.3 = heading.3.min(self.drained + offset);
+    }
     self.line_start_dirty_from = self.line_start_dirty_from.min(offset);
     self.heading_run_dirty_from = self.heading_run_dirty_from.min(offset);
     self.list_gap_from = self.list_gap_from.min(offset);
@@ -3523,6 +3529,7 @@ impl ConvertState {
     if !plain_text!(self) && self.clean_flags() & CLEAN_FRAGMENTS != 0 {
       return String::new();
     }
+    self.release_nonempty_headings();
     self.flush_settled_blockquote_lines();
     let buf_len = self.buffer.len();
     // Trailing spaces at the buffer end are never final outside <pre>: a later
@@ -3589,6 +3596,13 @@ impl ConvertState {
     }
     if let Some(frame) = self.blockquotes.first() {
       stable_end = stable_end.min(hold_before(&self.buffer, frame.content_start));
+    }
+    // An empty heading takes its prefix back at close, so nothing from it on is final.
+    if let Some(&(start, _, _, _)) = self.heading_open.first() {
+      stable_end = stable_end.min(hold_before(
+        &self.buffer,
+        start.saturating_sub(self.drained),
+      ));
     }
     // Hold the bracket and preceding spaces while the close can rewrite them.
     if let Some(bracket_pos) = self.open_link_hold_floor() {
@@ -3771,6 +3785,24 @@ impl ConvertState {
   /// removal. Rewrites of already-yielded bytes can't be un-sent by any
   /// streaming API and diverge from one-shot regardless of drain. The
   /// `disable_drain` equivalence test guards this without enumerating rewrites.
+  fn release_nonempty_headings(&mut self) {
+    if !self.open_markers.is_empty() || self.open_link_hold_floor().is_some() || !self.code_spans.is_empty() {
+      return;
+    }
+    while let Some(heading) = self.heading_open.last_mut() {
+      let content = heading.3.max(heading.1).saturating_sub(self.drained);
+      if content > self.buffer.len() {
+        break;
+      }
+      if self.buffer.as_bytes()[content..].iter().any(|&b| !is_whitespace(b)) {
+        self.heading_open.pop();
+      } else {
+        heading.3 = self.drained + self.buffer.len();
+        break;
+      }
+    }
+  }
+
   fn drain_streamed_prefix(&mut self) {
     #[cfg(any(test, fuzzing))]
     if self.disable_drain {
@@ -3811,6 +3843,12 @@ impl ConvertState {
     }
     if let Some(frame) = self.blockquotes.first() {
       drain_end = drain_end.min(keep_two_before(&self.buffer, frame.content_start));
+    }
+    if let Some(&(start, _, _, _)) = self.heading_open.first() {
+      drain_end = drain_end.min(keep_two_before(
+        &self.buffer,
+        start.saturating_sub(self.drained),
+      ));
     }
     // Answer a pending marker-line guard when the item's first content already
     // does, so the hold below never outlives the marker's own line.

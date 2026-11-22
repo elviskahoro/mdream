@@ -143,6 +143,6 @@ fn aliased_bracket_from_unclosed_nested_anchor_is_not_rewritten() {
   // Tailwind skips both nested anchors, so neither may leave a `](#...)` tail.
   assert_eq!(
     markdown,
-    "###\n\n[text-decoration-thickness](/docs/text-decoration-thickness)"
+    "[text-decoration-thickness](/docs/text-decoration-thickness)"
   );
 }

@@ -3004,6 +3004,19 @@ impl ConvertState {
       output.as_deref(),
       enter_is_literal || caption_heading_enter,
     );
+    if !plain_text!(self)
+      && !enter_is_literal
+      && tag_id.is_some_and(|id| id.wrapping_sub(TAG_H1) < 6)
+      && self.depth_map[TAG_A as usize] == 0
+      && !self.in_table_cell()
+    {
+      self.heading_open.push((
+        self.drained + output_start,
+        self.drained + self.buffer.len(),
+        self.stack[stack_len - 1].depth,
+        self.drained + self.buffer.len(),
+      ));
+    }
     if open_void_enter {
       self.last_node_is_inline = true;
     }
@@ -3865,7 +3878,7 @@ impl ConvertState {
     } else {
       self.calculate_new_line_config(tag_id, node_spacing, false)
     };
-    let configured_new_lines = if consumes_caption_boundary || void_spacing_at_enter {
+    let mut configured_new_lines = if consumes_caption_boundary || void_spacing_at_enter {
       0
     } else if tag_id == Some(TAG_HR) && !self.blockquotes.is_empty() {
       new_line_config[1].min(1)
@@ -3896,6 +3909,32 @@ impl ConvertState {
     if tag_id.is_some_and(|id| id.wrapping_sub(TAG_H1) < 6) {
       self.heading_hash_run = 0;
     }
+    // A heading with no text writes nothing, not even its `#`; its exit still
+    // owes the block break, which the write below settles.
+    let mut dropped_heading = false;
+    if tag_id.is_some_and(|id| id.wrapping_sub(TAG_H1) < 6)
+      && self.heading_open.last().is_some_and(|&(_, _, depth, _)| depth == node.depth)
+      && let Some((start, content, _, _)) = self.heading_open.pop()
+      && start >= self.drained
+      && let (start, content) = (start - self.drained, content - self.drained)
+      && content <= self.buffer.len()
+      && self.buffer.as_bytes()[content..]
+        .iter()
+        .all(|&b| is_whitespace(b))
+    {
+      self.truncate_buffer(start);
+      self.in_heading = false;
+      dropped_heading = true;
+      if let Some(&(_, outer_content, _, _)) = self.heading_open.last() {
+        if self.drained + self.buffer.len() < outer_content {
+          self.buffer.push(' ');
+        }
+        configured_new_lines = 0;
+        if !has_override {
+          output = None;
+        }
+      }
+    }
     if let Some(id) = tag_id
       && id.wrapping_sub(TAG_H1) < 6
       && self.depth_map[TAG_A as usize] == 0
@@ -3916,7 +3955,7 @@ impl ConvertState {
       }
       // Raw `<hN>` in a table cell and plain text both write no ATX prefix, so
       // there is no closing sequence to protect.
-      if !plain_text!(self) && !self.in_table_cell() {
+      if !dropped_heading && !plain_text!(self) && !self.in_table_cell() {
         // An overridden exit inside a code span has no ATX closing sequence.
         // Keep its literal hashes, as the override's own handler does in JS.
         if !has_override || self.code_spans.is_empty() {
@@ -3926,6 +3965,10 @@ impl ConvertState {
           self.owe_item_heading_break(node);
         }
       }
+    }
+    if dropped_heading && !self.heading_open.is_empty() && self.clean_flags() & CLEAN_FRAGMENTS != 0 {
+      self.in_heading = true;
+      self.heading_buffer_start = self.heading_open.last().unwrap().1.saturating_sub(self.drained);
     }
 
     // TAG_A exit: write ](url) directly to buffer — zero allocation
@@ -6059,7 +6102,7 @@ impl ConvertState {
         // A list marker is block prefix too: its content column opens a fresh
         // block context, so `- # h` escapes exactly like `# h` would.
         return self
-          .list_marker_line_start(bytes, offset + 1, 3)
+          .list_marker_line_start(bytes, offset + 1, structural_indent + 3)
           .then_some(0);
       }
       spaces += 1;
