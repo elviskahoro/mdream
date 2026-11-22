@@ -5398,11 +5398,17 @@ fn drop_images_removes_images_and_image_only_links() {
     ..Default::default()
   };
   for (html, expected) in [
-    (r#"<a href="/x"><img src="a.png" alt="A"></a><p>hi</p>"#, "hi"),
+    (
+      r#"<a href="/x"><img src="a.png" alt="A"></a><p>hi</p>"#,
+      "hi",
+    ),
     (r#"<p>a <img src="b.png" alt="B"> c</p>"#, "a c"),
     (r#"<a href="/y">t<img src="a.png" alt="A"></a>"#, "[t](/y)"),
     (r#"<p>a <a href="/x"></a> b</p>"#, "a [](/x) b"),
-    (r#"<details><a href="/x"><img src="a.png"></a></details>"#, "<details></details>"),
+    (
+      r#"<details><a href="/x"><img src="a.png"></a></details>"#,
+      "<details></details>",
+    ),
     (
       r#"<details><a href="/x">t<img src="a.png"></a></details>"#,
       r#"<details><a href="/x">t</a></details>"#,
