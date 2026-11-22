@@ -20,7 +20,8 @@ on:
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Key on the release tag so a tag push and a manual resume of that tag share a group.
+  group: ${{ github.workflow }}-${{ inputs.tag || github.ref_name }}
   # Never cancel an in-flight publish; queue resumed releases instead.
   cancel-in-progress: false
 
