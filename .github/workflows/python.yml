@@ -20,6 +20,10 @@ on:
   pull_request:
     paths:
       - 'crates/python/**'
+      # The binding wraps the core crate, so core changes must re-run Python tests.
+      - 'crates/core/**'
+      - crates/Cargo.toml
+      - crates/Cargo.lock
       - .github/workflows/python.yml
   workflow_dispatch:
     inputs:

@@ -65,44 +65,75 @@ def stream_fixture():
     return _stream_fixture
 
 
+BUCKET = 0.01  # seconds per bucket of main-thread progress
+EDGE_MARGIN = 0.02  # drop the first/last 20ms, where GIL hand-off is legitimate
+
+
 def iterations_while_worker_converts(convert):
-    """Runs `convert` in a worker thread; counts main-thread loop iterations
-    strictly while the conversion is in flight."""
-    ready = threading.Event()
+    """Runs `convert` in a worker thread and returns main-thread loop
+    iterations that happened strictly inside the conversion interval.
+
+    `convert(done)` must call `done["start"]()` immediately before the
+    conversion and `done["stop"]()` immediately after it. The main thread
+    timestamps every iteration into 10ms buckets, and only buckets fully
+    inside (start + margin, stop - margin) count. That excludes scheduling
+    delay before the conversion starts and slack after it returns, so a
+    conversion that holds the GIL yields ~0 interior iterations."""
+    state = {}
     go = threading.Event()
-    done = {}
+
+    def mark(key):
+        def _mark():
+            state[key] = time.perf_counter()
+
+        return _mark
+
+    state["start_fn"] = mark("start")
+    state["stop_fn"] = mark("stop")
 
     def worker():
-        ready.set()
         go.wait()
-        convert(done)
+        convert(state)
 
     thread = threading.Thread(target=worker)
     thread.start()
-    ready.wait()
     go.set()
 
-    iterations = 0
+    buckets = {}
     deadline = time.perf_counter() + 30  # hard cap, never reached in practice
-    while "done" not in done and time.perf_counter() < deadline:
-        iterations += 1
+    while "stop" not in state and time.perf_counter() < deadline:
+        now = time.perf_counter()
+        start = state.get("start")
+        if start is not None:
+            index = int((now - start) / BUCKET)
+            buckets[index] = buckets.get(index, 0) + 1
     thread.join()
-    return iterations
+
+    start, stop = state["start"], state["stop"]
+    lo = EDGE_MARGIN
+    hi = (stop - start) - EDGE_MARGIN
+    interior = sum(
+        count
+        for index, count in buckets.items()
+        if index * BUCKET >= lo and (index + 1) * BUCKET <= hi
+    )
+    return interior
 
 
 def test_one_shot_conversion_releases_the_gil():
     html, single = one_shot_fixture()
 
-    def convert(done):
-        done["md"] = mdream.html_to_markdown(html)
-        done["done"] = True
+    def convert(state):
+        state["start_fn"]()
+        mdream.html_to_markdown(html)
+        state["stop_fn"]()
 
     iterations = iterations_while_worker_converts(convert)
     # A conversion holding the GIL blocks the main thread completely for its
     # whole duration; the floor below is orders of magnitude under the count
     # an unblocked main thread reaches (~millions of iterations).
-    assert iterations >= 100_000, (
-        f"main thread managed only {iterations} iterations during a "
+    assert iterations >= 10_000, (
+        f"main thread managed only {iterations} interior iterations during a "
         f"{single:.2f}s conversion - conversion appears to hold the GIL"
     )
 
@@ -110,14 +141,15 @@ def test_one_shot_conversion_releases_the_gil():
 def test_stream_process_chunk_releases_the_gil():
     chunk, single = stream_fixture()
 
-    def convert(done):
+    def convert(state):
         s = mdream.MarkdownStream()
+        state["start_fn"]()
         s.process_chunk(chunk)
         s.finish()
-        done["done"] = True
+        state["stop_fn"]()
 
     iterations = iterations_while_worker_converts(convert)
-    assert iterations >= 100_000, (
-        f"main thread managed only {iterations} iterations during a "
+    assert iterations >= 10_000, (
+        f"main thread managed only {iterations} interior iterations during a "
         f"{single:.2f}s stream round - process_chunk appears to hold the GIL"
     )
