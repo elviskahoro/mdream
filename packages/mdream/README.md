@@ -399,6 +399,8 @@ interface MdreamOptions {
    * tables, and headings are never wrapped. `0` (or unset) disables wrapping.
    */
   wrapWidth?: number
+  /** Set `false` to omit images and drop links left with no text. Markdown and text output. */
+  images?: boolean
 
   /** Output Markdown, plain text, or HTML. Default: 'markdown' */
   format?: 'markdown' | 'text' | 'html'
@@ -429,6 +431,8 @@ interface EngineOptions {
    * disables wrapping.
    */
   wrapWidth?: number
+  /** Set `false` to omit images and drop links left with no text. Markdown and text output. */
+  images?: boolean
 
 }
 ```
@@ -1229,7 +1233,7 @@ For matching TypeScript types, add `mdream-markdown` to `compilerOptions.customC
 For an edge import, also include your runtime's condition, such as `workerd`.
 
 This build accepts `origin` and `format: 'markdown'`.
-It throws on other options, including plugins, cleanup, and `wrapWidth`.
+It throws on other options, including plugins, cleanup, `images`, and `wrapWidth`.
 Remove the condition if your app needs those options or text or safe HTML output.
 
 ### Browser CDN (IIFE)

@@ -9,7 +9,7 @@ export interface ResolvedOptions {
 
 const MINIMAL_FILTER_EXCLUDE = ['form', 'fieldset', 'object', 'embed', 'footer', 'aside', 'iframe', 'input', 'textarea', 'select', 'button', 'nav'] as const
 const CLEAN_ALL: CleanOptions = { urls: true, fragments: true, emptyLinks: true, redundantLinks: true, selfLinkHeadings: true, emptyImages: true, emptyLinkText: true }
-const VALID_OPTIONS = 'origin, clean, minimal, frontmatter, isolateMain, tailwind, filter, extraction, tagOverrides, wrapWidth, format'
+const VALID_OPTIONS = 'origin, clean, minimal, frontmatter, isolateMain, tailwind, filter, extraction, tagOverrides, wrapWidth, images, format'
 
 function unknownOptionMessage(key: string, value: unknown): string {
   switch (key) {
@@ -43,6 +43,7 @@ function assertKnownOptions(options: Partial<MdreamOptions>): void {
       case 'extraction':
       case 'tagOverrides':
       case 'wrapWidth':
+      case 'images':
       case 'format':
         continue
     }
@@ -115,7 +116,7 @@ export function resolveOptions(options: Partial<MdreamOptions>): ResolvedOptions
   }
 
   return {
-    napiOpts: { origin: options.origin, clean: resolveClean(options.clean, minimal), plugins, wrapWidth: options.wrapWidth, format: options.format },
+    napiOpts: { origin: options.origin, clean: resolveClean(options.clean, minimal), plugins, wrapWidth: options.wrapWidth, images: options.images, format: options.format },
     extractionHandlers,
     frontmatterCallback,
   }

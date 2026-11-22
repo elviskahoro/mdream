@@ -14,6 +14,7 @@ interface CliOptions {
   origin?: string
   preset?: string
   wrapWidth?: number
+  images?: boolean
   format?: 'markdown' | 'text' | 'html'
   text?: boolean
 }
@@ -28,6 +29,7 @@ async function streamingConvert(options: CliOptions = {}) {
 
   let conversionOptions: Partial<MdreamOptions> = {
     origin: options.origin,
+    images: options.images === false ? false : undefined,
     wrapWidth: options.wrapWidth ? Number(options.wrapWidth) || undefined : undefined,
   }
 
@@ -109,6 +111,7 @@ const cli = cac()
 cli.command('[options]', 'Convert HTML from stdin to Markdown on stdout (JS engine)')
   .option('--origin <url>', 'Origin URL for resolving relative image paths')
   .option('--preset <preset>', 'Conversion presets: minimal')
+  .option('--no-images', 'Omit images and links left empty by them')
   .option('--wrap-width <n>', 'Hard-wrap prose at <n> characters on word boundaries')
   .option('--format <format>', 'Output format: markdown, text, html')
   .option('--text', 'Alias for --format text')

@@ -5389,6 +5389,148 @@ fn clean_image_no_alt_attr_stripped() {
   );
 }
 
+#[test]
+fn clean_empty_images_preserves_empty_link() {
+  let options = HtmlToMarkdownOptions {
+    clean: Some(CleanConfig {
+      empty_images: true,
+      ..Default::default()
+    }),
+    ..Default::default()
+  };
+  assert_eq!(
+    html_to_markdown(r#"<a href="/x"><img src="a.png"></a>"#, options),
+    "[](/x)"
+  );
+}
+
+#[test]
+fn drop_images_suppresses_exit_overrides() {
+  let options = HtmlToMarkdownOptions {
+    drop_images: true,
+    plugins: Some(PluginConfig::default().with_tag_override(
+      "img",
+      TagOverrideConfig {
+        exit: Some("EXIT".into()),
+        ..Default::default()
+      },
+    )),
+    ..Default::default()
+  };
+  let html = r#"<p>a<img src="a.png">b</p>"#;
+  assert_eq!(html_to_markdown(html, options.clone()), "ab");
+  assert_eq!(html_to_text(html, options), "ab");
+}
+
+// ── drop_images ──
+
+#[test]
+fn drop_images_removes_images_and_image_only_links() {
+  let opts = || HtmlToMarkdownOptions {
+    drop_images: true,
+    ..Default::default()
+  };
+  for (html, expected) in [
+    (
+      r#"<a href="/x"><img src="a.png" alt="A"></a><p>hi</p>"#,
+      "hi",
+    ),
+    (r#"<p>a <img src="b.png" alt="B"> c</p>"#, "a c"),
+    (r#"<a href="/y">t<img src="a.png" alt="A"></a>"#, "[t](/y)"),
+    (r#"<p>a <a href="/x"></a> b</p>"#, "a [](/x) b"),
+    (
+      r#"<details><a href="/x"><img src="a.png"></a></details>"#,
+      "<details></details>",
+    ),
+    (
+      r#"<details><a href="/x"><sub><img src="x"></sub></a></details>"#,
+      "<details></details>",
+    ),
+    (
+      r#"<details><a href="/x"><sub>text<img src="x"></sub></a></details>"#,
+      r#"<details><a href="/x"><sub>text</sub></a></details>"#,
+    ),
+    (
+      r#"<details><a href="/x">t<img src="a.png"></a></details>"#,
+      r#"<details><a href="/x">t</a></details>"#,
+    ),
+  ] {
+    assert_eq!(html_to_markdown(html, opts()), expected, "{html}");
+    for split in 1..html.len().saturating_sub(1) {
+      if !html.is_char_boundary(split) {
+        continue;
+      }
+      let mut processor = MarkdownStreamProcessor::new(opts());
+      let mut out = processor.process_chunk(&html[..split]);
+      out.push_str(&processor.process_chunk(&html[split..]));
+      out.push_str(&processor.finish());
+      assert_eq!(out, expected, "{html} split at {split}");
+    }
+  }
+}
+
+#[test]
+fn drop_images_holds_raw_anchor_with_wrapper_markup() {
+  let options = HtmlToMarkdownOptions {
+    drop_images: true,
+    ..Default::default()
+  };
+  let mut processor = MarkdownStreamProcessor::new(options);
+  let mut output = processor.process_chunk(r#"<details><a href="/x">"#);
+  for _ in 0..1000 {
+    output.push_str(&processor.process_chunk("<sub></sub>"));
+  }
+  output.push_str(&processor.process_chunk(r#"<sub><img src="x"></sub></a></details>"#));
+  output.push_str(&processor.finish());
+  assert_eq!(output, "<details></details>");
+}
+
+#[test]
+fn drop_images_preserves_raw_anchor_with_override_output() {
+  let html = r#"<details><a href="/x"><span></span><img src="x"></a></details>"#;
+  let expected = r#"<details><a href="/x">label</a></details>"#;
+  for enter in [true, false] {
+    let options = HtmlToMarkdownOptions {
+      drop_images: true,
+      plugins: Some(PluginConfig::default().with_tag_override(
+        "span",
+        TagOverrideConfig {
+          enter: enter.then(|| "label".into()),
+          exit: (!enter).then(|| "label".into()),
+          ..Default::default()
+        },
+      )),
+      ..Default::default()
+    };
+    assert_eq!(html_to_markdown(html, options.clone()), expected);
+    for split in 1..html.len() {
+      let mut processor = MarkdownStreamProcessor::new(options.clone());
+      let mut output = processor.process_chunk(&html[..split]);
+      output.push_str(&processor.process_chunk(&html[split..]));
+      output.push_str(&processor.finish());
+      assert_eq!(output, expected, "split at {split}");
+    }
+  }
+}
+
+#[test]
+fn drop_images_preserves_released_raw_anchor() {
+  let options = HtmlToMarkdownOptions {
+    drop_images: true,
+    ..Default::default()
+  };
+  let prefix = format!(r#"<details><a href="/x">{}"#, "visible text ".repeat(1000));
+  let suffix = format!("{}<img src=\"x\"></a></details>", " &nbsp;".repeat(20));
+  let html = format!("{prefix}more text <span></span>{suffix}");
+  let mut processor = MarkdownStreamProcessor::new(options.clone());
+  let mut output = processor.process_chunk(&prefix);
+  output.push_str(&processor.process_chunk("more text <span></span>"));
+  assert!(output.contains(r#"<a href="/x">"#));
+  output.push_str(&processor.process_chunk(&suffix));
+  output.push_str(&processor.finish());
+  assert_eq!(output, html_to_markdown(&html, options));
+}
+
 // ── emptyLinkText ──
 
 #[test]

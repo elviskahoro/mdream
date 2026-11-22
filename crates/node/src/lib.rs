@@ -104,6 +104,7 @@ pub struct HtmlToMarkdownOptions {
   pub plugins: Option<PluginOptions>,
   #[napi(js_name = "wrapWidth")]
   pub wrap_width: Option<u32>,
+  pub images: Option<bool>,
   #[napi(ts_type = "\"markdown\" | \"text\" | \"html\"")]
   pub format: Option<String>,
 }
@@ -141,6 +142,7 @@ fn to_core_opts(
       .as_ref()
       .and_then(|o| o.wrap_width)
       .map_or(0, |w| w as usize),
+    drop_images: options.as_ref().and_then(|o| o.images) == Some(false),
     // Not exposed through the bindings yet: the JS engine has no equivalent cap.
     max_node_bytes: 0,
     plugins: options.and_then(|o| {

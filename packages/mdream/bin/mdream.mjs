@@ -2,7 +2,7 @@
 import { Readable } from 'node:stream'
 import { streamHtmlToMarkdown } from 'mdream'
 
-const USAGE = 'Usage: mdream [--origin <url>] [--preset minimal] [--wrap-width <n>] [--format markdown|text|html] [--text]\nPipe HTML via stdin, outputs Markdown, plain text, or safe HTML to stdout.\n'
+const USAGE = 'Usage: mdream [--origin <url>] [--preset minimal] [--wrap-width <n>] [--no-images] [--format markdown|text|html] [--text]\nPipe HTML via stdin, outputs Markdown, plain text, or safe HTML to stdout.\n'
 
 function fail(message) {
   process.stderr.write(`${message}\n`)
@@ -13,6 +13,7 @@ const args = process.argv.slice(2)
 let origin
 let preset
 let wrapWidth
+let images
 let format
 for (let i = 0; i < args.length; i++) {
   const arg = args[i]
@@ -37,6 +38,11 @@ for (let i = 0; i < args.length; i++) {
   else if (flag === '--wrap-width') {
     wrapWidth = Number.parseInt(takeValue(), 10) || undefined
   }
+  else if (flag === '--no-images') {
+    if (eq !== -1)
+      fail('The --no-images option takes no value.')
+    images = false
+  }
   else if (flag === '--format') {
     format = takeValue()
     if (format !== 'markdown' && format !== 'text' && format !== 'html')
@@ -59,7 +65,7 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-const options = { origin, minimal: preset === 'minimal', wrapWidth, format }
+const options = { origin, minimal: preset === 'minimal', wrapWidth, images, format }
 const stream = Readable.toWeb(process.stdin)
 for await (const chunk of streamHtmlToMarkdown(stream, options)) {
   if (chunk?.length)

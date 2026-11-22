@@ -68,7 +68,7 @@ describe('options @mdream/js does not read', () => {
     expect(() => htmlToMarkdown('<p>x</p>', { plugins: { frontmatter: true } } as any)).toThrow('as an array')
     expect(() => htmlToMarkdown('<p>x</p>', { preset: 'minimal' } as any)).toThrow('@mdream/js has no `preset` option. Use withMinimalPreset()')
     expect(() => htmlToMarkdown('<p>x</p>', { cleanUrls: true } as any)).toThrow('{ clean: clean({ urls: true }) }')
-    expect(() => htmlToMarkdown('<p>x</p>', { isolatemain: true } as any)).toThrow('@mdream/js has no `isolatemain` option. Valid options: origin, tagOverrides, clean, wrapWidth, plugins.')
+    expect(() => htmlToMarkdown('<p>x</p>', { isolatemain: true } as any)).toThrow('@mdream/js has no `isolatemain` option. Valid options: origin, tagOverrides, clean, wrapWidth, images, plugins.')
   })
 
   it.each(converters)('%s ignores keys whose value is undefined', (_name, convert) => {

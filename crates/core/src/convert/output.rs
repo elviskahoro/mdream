@@ -2750,15 +2750,33 @@ impl ConvertState {
       self.prepend_list_break(&mut output);
     }
 
-    if self.clean_flags() & CLEAN_EMPTY_IMAGES != 0
-      && tag_id == Some(TAG_IMG)
-      && self.stack[stack_len - 1]
-        .attributes
-        .get("alt")
-        .is_none_or(|alt| alt.chars().all(is_ecmascript_whitespace))
+    if tag_id == Some(TAG_IMG)
+      && (self.clean_flags() & CLEAN_DROP_IMAGES != 0
+        || (self.clean_flags() & CLEAN_EMPTY_IMAGES != 0
+          && self.stack[stack_len - 1]
+            .attributes
+            .get("alt")
+            .is_none_or(|alt| alt.chars().all(is_ecmascript_whitespace))))
     {
+      if self.clean_flags() & CLEAN_DROP_IMAGES != 0
+        && self.link.open
+        && self.depth_map[TAG_A as usize] > 0
+      {
+        self.link.image_dropped = true;
+      }
       self.last_node_is_inline = is_inline;
       return;
+    }
+
+    if self.link.raw_open_len != 0
+      && enter_is_literal
+      && output.as_deref().is_some_and(|s| {
+        s.bytes()
+          .any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r'))
+      })
+    {
+      self.link.raw_has_text = true;
+      self.link.empty_text_pending = false;
     }
 
     // Phase 2: calculate new lines + write buffer
@@ -3158,6 +3176,13 @@ impl ConvertState {
       };
       self.begin_link(bracket_pos, false, raw_html_link_open);
       self.link.bracket_emitted = emitted_bracket;
+      if raw_html_link_open && self.clean_flags() & CLEAN_DROP_IMAGES != 0 {
+        let open_len = output.as_deref().map_or(0, str::len);
+        self.link.raw_open_len = open_len;
+        self.link.bracket_pos = buf_len - open_len;
+      }
+      // A raw anchor is held until text shows it is not image-only.
+      let raw_drop_anchor = raw_html_link_open && self.clean_flags() & CLEAN_DROP_IMAGES != 0;
       if emitted_bracket
         && self.clean_flags() & (CLEAN_FRAGMENTS | CLEAN_SELF_LINK_HEADINGS | CLEAN_REDUNDANT_LINKS)
           != 0
@@ -3174,7 +3199,7 @@ impl ConvertState {
       // One-shot conversion sets this too: until visible text arrives, the close
       // may drop the link, so the item marker guard must not count its `[`.
       self.link.empty_text_pending =
-        has_rewrite_anchor && self.clean_flags() & CLEAN_EMPTY_LINK_TEXT != 0;
+        (has_rewrite_anchor && self.clean_flags() & CLEAN_EMPTY_LINK_TEXT != 0) || raw_drop_anchor;
       // Avoid the href lookup and hold bookkeeping for one-shot conversion, unless
       // `max_node_bytes` has to charge what the link holds back.
       if self.streaming || self.options.node_byte_limit() != 0 {
@@ -3187,7 +3212,7 @@ impl ConvertState {
           });
         if self.streaming {
           self.link.hold_forever = self.link.pins_output;
-          self.link.hold_released = !has_rewrite_anchor;
+          self.link.hold_released = !has_rewrite_anchor && !raw_drop_anchor;
           self.link.url_max_len = href.map_or(0, |href| {
             URL_RESOLVE_SLACK + self.options.origin.as_deref().map_or(0, str::len) + 1 + href.len()
           });
@@ -3260,6 +3285,19 @@ impl ConvertState {
       return true;
     }
 
+    // A raw-HTML anchor `dropImages` left without content goes with its image.
+    if raw_html_anchor
+      && !self.link.hold_released
+      && self.link.image_dropped
+      && self.link.raw_open_len != 0
+      && !self.link.raw_has_text
+    {
+      self.truncate_buffer(self.link.bracket_pos);
+      self.end_link();
+      self.last_node_is_inline = is_inline;
+      return true;
+    }
+
     // Rewrites need the `[` this anchor wrote. Without one, only the rewrites are skipped.
     let rewrite_bracket = if !plain_text!(self)
       && self.clean_flags() != 0
@@ -3287,7 +3325,9 @@ impl ConvertState {
       let text_len = buf_len.saturating_sub(text_start);
 
       // emptyLinkText: [](url) → drop entirely
-      if self.clean_flags() & CLEAN_EMPTY_LINK_TEXT != 0 && link_text.trim().is_empty() {
+      if link_text.trim().is_empty()
+        && (self.clean_flags() & CLEAN_EMPTY_LINK_TEXT_EXPLICIT != 0 || self.link.image_dropped)
+      {
         self.drop_empty_link_text(bracket_pos, is_inline);
         return true;
       }
@@ -3626,7 +3666,9 @@ impl ConvertState {
       open_void && override_config.is_some_and(Self::void_spacing_follows_enter);
 
     // Check override exit string
-    let has_override = if let Some(ov) = override_config {
+    let has_override = if tag_id == Some(TAG_IMG) && self.clean_flags() & CLEAN_DROP_IMAGES != 0 {
+      true
+    } else if let Some(ov) = override_config {
       if let Some(ref s) = ov.exit {
         output = Some(Cow::Owned(s.clone()));
         true
@@ -3681,6 +3723,16 @@ impl ConvertState {
     }
     if !plain_text!(self) && self.pre_fence_pending && tag_id != Some(TAG_PRE) && has_override {
       self.flush_pre_fence();
+    }
+    if self.link.raw_open_len != 0
+      && has_override
+      && output.as_deref().is_some_and(|s| {
+        s.bytes()
+          .any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r'))
+      })
+    {
+      self.link.raw_has_text = true;
+      self.link.empty_text_pending = false;
     }
     // Pop at the exit of the inline code element that pushed: the enter ignores
     // exit overrides, so an exit-only override that skipped the pop leaked the
@@ -4226,6 +4278,7 @@ impl ConvertState {
     keeps_pending: impl FnOnce() -> bool,
   ) {
     if self.link.empty_text_pending
+      && self.link.raw_open_len == 0
       && !keeps_pending()
       && self
         .buffer
@@ -4416,6 +4469,14 @@ impl ConvertState {
           marker.decoded_blank = true;
         }
       }
+    }
+    if self.link.raw_open_len != 0
+      && text
+        .bytes()
+        .any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r'))
+    {
+      self.link.raw_has_text = true;
+      self.link.empty_text_pending = false;
     }
     self.last_text_node_contains_whitespace = contains_whitespace;
     self.has_last_text_node = true;

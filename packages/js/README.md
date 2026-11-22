@@ -359,6 +359,7 @@ const markdown = htmlToMarkdown(html, {
 | `tagOverrides` | `Record<string, TagOverride \| string>` | `undefined` | Custom tag output or aliases |
 | `clean` | `Cleaner` | `undefined` | Cleanup rules from `clean()` in `@mdream/js/clean` (see [CleanOptions](#cleanoptions)). Streams apply them too. With `fragments`, a stream yields all output at the end. |
 | `wrapWidth` | `number` | `undefined` | Hard-wrap prose at this many characters on word boundaries |
+| `images` | `boolean` | `true` | Set `false` to omit images and drop links left with no text, such as image-only links. Markdown and text output |
 
 Any other key throws a `TypeError` that names the key.
 
