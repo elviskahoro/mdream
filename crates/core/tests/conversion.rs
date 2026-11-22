@@ -10831,7 +10831,7 @@ fn an_empty_heading_emits_nothing() {
     ("<blockquote><h1></h1><p>x</p></blockquote>", "> x"),
     ("<h1></h1>", ""),
     ("<h1><span><h2></h2></span></h1>", ""),
-    ("<h1><span><h2></h2></span>outer</h1>", "#\n\nouter"),
+    ("<h1><span><h2></h2></span>outer</h1>", "# outer"),
     ("<h1>outer<span><h2></h2></span></h1>", "# outer"),
     ("<h1>T</h1><h2></h2><h3>U</h3>", "# T\n\n### U"),
   ] {

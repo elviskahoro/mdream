@@ -3826,7 +3826,7 @@ impl ConvertState {
     } else {
       self.calculate_new_line_config(tag_id, node_spacing, false)
     };
-    let configured_new_lines = if consumes_caption_boundary || void_spacing_at_enter {
+    let mut configured_new_lines = if consumes_caption_boundary || void_spacing_at_enter {
       0
     } else if tag_id == Some(TAG_HR) && !self.blockquotes.is_empty() {
       new_line_config[1].min(1)
@@ -3873,6 +3873,15 @@ impl ConvertState {
       self.truncate_buffer(start);
       self.in_heading = false;
       dropped_heading = true;
+      if let Some(&(_, outer_content, _, _)) = self.heading_open.last() {
+        if self.drained + self.buffer.len() < outer_content {
+          self.buffer.push(' ');
+        }
+        configured_new_lines = 0;
+        if !has_override {
+          output = None;
+        }
+      }
     }
     if let Some(id) = tag_id
       && id.wrapping_sub(TAG_H1) < 6
@@ -3904,6 +3913,10 @@ impl ConvertState {
           self.owe_item_heading_break(node);
         }
       }
+    }
+    if dropped_heading && !self.heading_open.is_empty() && self.clean_flags() & CLEAN_FRAGMENTS != 0 {
+      self.in_heading = true;
+      self.heading_buffer_start = self.heading_open.last().unwrap().1.saturating_sub(self.drained);
     }
 
     // TAG_A exit: write ](url) directly to buffer — zero allocation

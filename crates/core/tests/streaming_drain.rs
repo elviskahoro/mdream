@@ -7033,6 +7033,14 @@ fn empty_heading_with_unclosed_inline_markup_streams_like_one_shot() {
 }
 
 #[test]
+fn empty_nested_heading_preserves_outer_heading() {
+  let html = "<h1><span><h2></h2></span>outer</h1>";
+  for width in 1..=5 {
+    assert_eq!(stream_chunks(html, width, HtmlToMarkdownOptions::default()), "# outer");
+  }
+}
+
+#[test]
 fn large_whitespace_only_heading_streams_like_one_shot() {
   for suffix in ["</h1><p>body</p>", "text</h1>"] {
     let html = format!("<h1>{}{suffix}", "<br>".repeat(12000));

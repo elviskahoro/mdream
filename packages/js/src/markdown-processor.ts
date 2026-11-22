@@ -4234,12 +4234,20 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
           buff.length = start
           noteBufferRewrite(state)
           droppedHeading = true
+          const outer = headings.at(-1)
+          if (outer && buff.length < outer.content)
+            buff.push(' ')
           // The exit's break was sized against the heading's own prefix.
           if (output && !handler?.literalExit && !hasPluginOutput) {
-            if (configuredNewLines > 0)
-              trimTrailingSpaces(buff)
-            const owed = buff.length === 0 && !hasYieldedContent ? 0 : Math.max(0, configuredNewLines - newlineRunBefore(buff, buff.length))
-            output = owed > 0 ? ['\n'.repeat(owed)] : undefined
+            if (outer) {
+              output = undefined
+            }
+            else {
+              if (configuredNewLines > 0)
+                trimTrailingSpaces(buff)
+              const owed = buff.length === 0 && !hasYieldedContent ? 0 : Math.max(0, configuredNewLines - newlineRunBefore(buff, buff.length))
+              output = owed > 0 ? ['\n'.repeat(owed)] : undefined
+            }
           }
         }
       }
