@@ -14,6 +14,29 @@ const CASES: [string, string][] = [
 ]
 
 describe('images: false', () => {
+  it('preserves raw links with plugin or override output', async () => {
+    const html = '<details><a href="/x"><span></span><img src="x"></a></details>'
+    const expected = '<details><a href="/x">label</a></details>'
+    for (const options of [
+      { images: false, tagOverrides: { span: { enter: 'label' } } },
+      { images: false, tagOverrides: { span: { exit: 'label' } } },
+      { images: false, plugins: [{ onNodeEnter: (node: { name: string }) => node.name === 'span' ? 'label' : undefined }] },
+      { images: false, plugins: [{ onNodeExit: (node: { name: string }) => node.name === 'span' ? 'label' : undefined }] },
+    ]) {
+      expect(htmlToMarkdown(html, options)).toBe(expected)
+      for (let split = 1; split < html.length; split++) {
+        const stream = new ReadableStream<string>({ start(controller) {
+          controller.enqueue(html.slice(0, split))
+          controller.enqueue(html.slice(split))
+          controller.close()
+        } })
+        let output = ''
+        for await (const part of streamHtmlToMarkdown(stream, options))
+          output += part
+        expect(output, `split at ${split}`).toBe(expected)
+      }
+    }
+  })
   for (const [html, expected] of CASES) {
     it(`converts ${html}`, async () => {
       expect(htmlToMarkdown(html, { images: false })).toBe(expected)

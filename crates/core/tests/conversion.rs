@@ -5468,6 +5468,31 @@ fn drop_images_holds_raw_anchor_with_wrapper_markup() {
 }
 
 #[test]
+fn drop_images_preserves_raw_anchor_with_override_output() {
+  let html = r#"<details><a href="/x"><span></span><img src="x"></a></details>"#;
+  let expected = r#"<details><a href="/x">label</a></details>"#;
+  for enter in [true, false] {
+    let options = HtmlToMarkdownOptions {
+      drop_images: true,
+      plugins: Some(PluginConfig::default().with_tag_override("span", TagOverrideConfig {
+        enter: enter.then(|| "label".into()),
+        exit: (!enter).then(|| "label".into()),
+        ..Default::default()
+      })),
+      ..Default::default()
+    };
+    assert_eq!(html_to_markdown(html, options.clone()), expected);
+    for split in 1..html.len() {
+      let mut processor = MarkdownStreamProcessor::new(options.clone());
+      let mut output = processor.process_chunk(&html[..split]);
+      output.push_str(&processor.process_chunk(&html[split..]));
+      output.push_str(&processor.finish());
+      assert_eq!(output, expected, "split at {split}");
+    }
+  }
+}
+
+#[test]
 fn drop_images_preserves_released_raw_anchor() {
   let options = HtmlToMarkdownOptions { drop_images: true, ..Default::default() };
   let prefix = format!(r#"<details><a href="/x">{}"#, "visible text ".repeat(1000));

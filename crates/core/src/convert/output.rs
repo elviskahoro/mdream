@@ -2767,6 +2767,13 @@ impl ConvertState {
       return;
     }
 
+    if self.link.raw_open_len != 0 && enter_is_literal
+      && output.as_deref().is_some_and(|s| !s.trim().is_empty())
+    {
+      self.link.raw_has_text = true;
+      self.link.empty_text_pending = false;
+    }
+
     // Phase 2: calculate new lines + write buffer
     let caption_enter = tag_id == Some(TAG_FIGCAPTION) && self.depth_map[TAG_PRE as usize] == 0;
     if caption_enter {
@@ -3711,6 +3718,12 @@ impl ConvertState {
     }
     if !plain_text!(self) && self.pre_fence_pending && tag_id != Some(TAG_PRE) && has_override {
       self.flush_pre_fence();
+    }
+    if self.link.raw_open_len != 0 && has_override
+      && output.as_deref().is_some_and(|s| !s.trim().is_empty())
+    {
+      self.link.raw_has_text = true;
+      self.link.empty_text_pending = false;
     }
     // Pop at the exit of the inline code element that pushed: the enter ignores
     // exit overrides, so an exit-only override that skipped the pop leaked the

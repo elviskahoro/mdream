@@ -3571,6 +3571,10 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     }
     if (emptyTableRow)
       return
+    if (rawLinkFragment >= 0 && output
+      && (hasPluginOutput || (eventType === NodeEventEnter ? handler?.literalEnter : handler?.literalExit))
+      && output.some(hasNonWhitespace))
+      rawLinkHasText = true
     // The wrapper test knows which built-in tags write inline Markdown. Cache
     // what a plugin or an overridden enter wrote, as Rust reads an override.
     if (eventType === NodeEventEnter && output && handler?.collapsesInnerWhiteSpace
