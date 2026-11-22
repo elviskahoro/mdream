@@ -3,10 +3,11 @@ requires = [ "maturin>=1,<2" ]
 build-backend = "maturin"
 
 [project]
-name = "mdream"
+name = "mdream-py"
 dynamic = [ "version" ]
 description = "Fastest HTML to Markdown converter with streaming and plugin support"
 license = "MIT"
+readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -24,6 +25,10 @@ classifiers = [
   "Topic :: Software Development :: Libraries",
   "Topic :: Text Processing :: Markup :: Markdown",
 ]
+
+[project.urls]
+Repository = "https://github.com/elviskahoro/mdream"
+Upstream = "https://github.com/harlan-zw/mdream"
 
 [tool.maturin]
 module-name = "mdream._mdream"

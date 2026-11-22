@@ -51,7 +51,7 @@ except ImportError:  # pragma: no cover - Python < 3.8 not supported anyway
 
 if version is not None:
     try:
-        __version__ = version("mdream")
+        __version__ = version("mdream-py")
     except PackageNotFoundError:  # pragma: no cover - not installed as a package
         __version__ = "0.0.0"
 else:  # pragma: no cover

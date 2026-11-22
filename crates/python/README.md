@@ -10,13 +10,15 @@ while large documents convert.
 - No runtime Python dependencies
 - MIT licensed, matching the workspace
 
+Python bindings for [mdream](https://github.com/harlan-zw/mdream) by harlan-zw (MIT). This is an independent packaging of the upstream Rust core as `mdream-py`.
+
 ## Install
 
-From PyPI, once the first wheels are published (distribution name `mdream`,
+From PyPI, once the first wheels are published (distribution name `mdream-py`,
 import name `mdream`):
 
 ```sh
-pip install mdream
+pip install mdream-py
 ```
 
 From source with [maturin](https://www.maturin.rs/):
