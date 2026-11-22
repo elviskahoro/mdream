@@ -7,7 +7,9 @@
 //! field-for-field mirror of `to_core_opts` in `crates/node/src/lib.rs`.
 //!
 //! Key casing is snake_case only. Divergence from NAPI (human-approved): the
-//! `max_node_bytes` safety cap is exposed (`Option<usize>`, `0` = unlimited).
+//! `max_node_bytes` safety cap is exposed (`Option<usize>`, `0` = unlimited),
+//! and `clean.empty_link_text` defaults to on (NAPI defaults it off) so empty
+//! links like `[](u)` are dropped; opt out with `clean={"empty_link_text": False}`.
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -61,16 +63,20 @@ const TAG_OVERRIDE_KEYS: &[&str] = &[
 
 /// Parses the public `options` dict into core options plus output format.
 ///
-/// `None` yields the defaults. Unknown keys at any level, invalid `format`
+/// `None` yields the Python defaults, including `empty_link_text` cleanup
+/// (unlike the core defaults). Unknown keys at any level, invalid `format`
 /// values, and negative numerics raise `ValueError`; wrong value types raise
 /// `TypeError`.
 pub fn parse_options(
   options: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<(HtmlToMarkdownOptions, OutputFormat)> {
-  let Some(dict) = options else {
-    return Ok((HtmlToMarkdownOptions::default(), OutputFormat::default()));
+  let mut opts = HtmlToMarkdownOptions {
+    clean: Some(default_clean()),
+    ..HtmlToMarkdownOptions::default()
   };
-  let mut opts = HtmlToMarkdownOptions::default();
+  let Some(dict) = options else {
+    return Ok((opts, OutputFormat::default()));
+  };
   let mut format = None;
   for (key, value) in dict.iter() {
     let key = key_str(&key)?;
@@ -90,6 +96,15 @@ pub fn parse_options(
 
 // ── Level parsers ──
 
+/// Links that render to no text are dropped unless the caller opts out with
+/// `clean={"empty_link_text": False}` (or disables cleaning with `clean=None`).
+fn default_clean() -> CleanConfig {
+  CleanConfig {
+    empty_link_text: true,
+    ..CleanConfig::default()
+  }
+}
+
 fn parse_clean(value: &Bound<'_, PyAny>) -> PyResult<Option<CleanConfig>> {
   if value.is_none() {
     return Ok(None);
@@ -97,7 +112,7 @@ fn parse_clean(value: &Bound<'_, PyAny>) -> PyResult<Option<CleanConfig>> {
   let dict = value
     .cast::<PyDict>()
     .map_err(|_| type_error("clean", "a dict"))?;
-  let mut clean = CleanConfig::default();
+  let mut clean = default_clean();
   for (key, value) in dict.iter() {
     let key = key_str(&key)?;
     match key {
