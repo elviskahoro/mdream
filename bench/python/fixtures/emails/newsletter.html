@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<!--
+  SYNTHETIC STAND-IN fixture (not a real email) — see bench/python/NOTES.md.
+  Shape: table-based marketing newsletter, as common in the linear-inbox case.
+  No PII: all identifiers are generic placeholders; passes scrub-check.py.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weekly digest — example newsletter</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:Helvetica,Arial,sans-serif;">
+  <div style="display:none;max-height:0;overflow:hidden;">Your weekly digest of open-source releases and release notes.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;">
+          <tr>
+            <td style="padding:32px 40px;background-color:#111827;color:#ffffff;">
+              <h1 style="margin:0;font-size:24px;">Example Digest</h1>
+              <p style="margin:8px 0 0;font-size:14px;color:#9ca3af;">Issue #42 — tools, releases, and notes</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 40px;">
+              <h2 style="font-size:20px;margin:0 0 12px;">Editor's pick</h2>
+              <p style="font-size:15px;line-height:24px;color:#374151;">
+                This week's pick is a converter that turns messy HTML into clean
+                Markdown for LLM pipelines. It keeps tables, nested lists, and
+                code blocks intact while shrinking token counts.
+              </p>
+              <p style="margin:24px 0;">
+                <a href="https://example.com/digest/editor-pick" style="display:inline-block;padding:12px 24px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-size:15px;">Read the pick</a>
+              </p>
+              <h2 style="font-size:20px;margin:32px 0 12px;">Releases worth a look</h2>
+              <ul style="font-size:15px;line-height:24px;color:#374151;padding-left:20px;">
+                <li>A streaming HTML parser with join-equals-one-shot semantics</li>
+                <li>A site crawler that emits llms.txt indexes</li>
+                <li>A benchmark suite comparing converters on real pages</li>
+              </ul>
+              <h2 style="font-size:20px;margin:32px 0 12px;">Numbers of the week</h2>
+              <table role="presentation" width="100%" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-size:14px;color:#374151;">
+                <tr style="background-color:#f9fafb;">
+                  <th align="left" style="border:1px solid #e5e7eb;">Metric</th>
+                  <th align="right" style="border:1px solid #e5e7eb;">This week</th>
+                  <th align="right" style="border:1px solid #e5e7eb;">Last week</th>
+                </tr>
+                <tr>
+                  <td style="border:1px solid #e5e7eb;">Indexed pages</td>
+                  <td align="right" style="border:1px solid #e5e7eb;">12,480</td>
+                  <td align="right" style="border:1px solid #e5e7eb;">11,930</td>
+                </tr>
+                <tr>
+                  <td style="border:1px solid #e5e7eb;">Median tokens saved</td>
+                  <td align="right" style="border:1px solid #e5e7eb;">38%</td>
+                  <td align="right" style="border:1px solid #e5e7eb;">35%</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 40px;background-color:#f9fafb;font-size:12px;color:#6b7280;">
+              <p style="margin:0 0 8px;">You are receiving this because you subscribed at example.com.</p>
+              <p style="margin:0;"><a href="https://example.com/digest/preferences" style="color:#6b7280;">Preferences</a> · <a href="https://example.com/digest/unsubscribe" style="color:#6b7280;">Unsubscribe</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

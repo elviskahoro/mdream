@@ -1,0 +1,36 @@
+[package]
+name = "mdream-python"
+version = "0.1.0"
+
+edition.workspace = true
+
+rust-version.workspace = true
+
+description = "Python bindings for mdream. Thin wrapper exposing the Rust engine to CPython."
+
+license.workspace = true
+
+repository.workspace = true
+
+[lib]
+crate-type = [ "cdylib" ]
+
+[dependencies]
+mdream = { path = "../core" }
+pyo3 = { version = "0.30.1", features = [ "abi3-py310" ] }
+
+[features]
+# Enabled only for wheel builds via `[tool.maturin]`, so `cargo test` links
+# against libpython and Rust unit tests run without a real import.
+extension-module = [ "pyo3/extension-module" ]
+
+[dev-dependencies]
+# Starts an interpreter for `Python::attach` in unit tests (never combined
+# with `extension-module`, which test builds do not enable).
+pyo3 = { version = "0.30.1", features = [
+  "abi3-py310",
+  "auto-initialize"
+] }
+
+[lints]
+workspace = true

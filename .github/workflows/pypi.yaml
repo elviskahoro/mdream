@@ -1,0 +1,176 @@
+name: PyPI
+
+# Publishes the mdream-py distribution (crates/python) to PyPI via trusted
+# publishing. The PyPI trusted publisher is registered to this exact file name
+# (pypi.yaml) and the `pypi` environment, so do not rename either.
+# Runs only on a py-v* tag or a manual resume; CI lives in python.yml.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    tags:
+      - 'py-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to resume (for example, py-v0.1.1)
+        required: true
+        type: string
+
+concurrency:
+  # Key on the release tag so a tag push and a manual resume of that tag share a group.
+  group: ${{ github.workflow }}-${{ inputs.tag || github.ref_name }}
+  # Never cancel an in-flight publish; queue resumed releases instead.
+  cancel-in-progress: false
+
+env:
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  # ── Wheels: macOS arm64 + Linux x86_64, plus sdist ──
+  wheels:
+    name: Wheels (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            manylinux: 2_28
+            sdist: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || '' }}
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates -> target
+
+      # maturin-action installs its own stable Rust toolchain when the runner
+      # has none; manylinux builds run inside the manylinux container.
+      - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          sdist: ${{ matrix.sdist }}
+          args: --release -m crates/python/Cargo.toml --out dist --locked
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheels-${{ matrix.target }}
+          path: dist/
+          if-no-files-found: error
+
+  # ── Tag-driven release: publish to PyPI via trusted publishing ──
+  # Tag py-vX.Y.Z must match the mdream-python crate version; resumable on re-runs.
+  # PyPI trusted-publisher pre-registration for this repo/workflow and the
+  # first actual publish are human-gated rollout steps (see the plan); this
+  # job stays red-free but cannot publish until that registration is done.
+  publish:
+    name: Publish to PyPI
+    needs: wheels
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    # Must match the environment configured in the PyPI trusted-publisher
+    # registration (human rollout step).
+    environment: pypi
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: channel
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          case "$RELEASE_TAG" in
+            py-v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::Use a py-vX.Y.Z release tag, got $RELEASE_TAG"; exit 1 ;;
+          esac
+          echo "version=${RELEASE_TAG#py-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify release branch
+        run: git merge-base --is-ancestor HEAD origin/main
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+
+      - name: Resolve distribution and version
+        id: version
+        working-directory: crates
+        env:
+          TAG_VERSION: ${{ steps.channel.outputs.version }}
+        run: |
+          CRATE_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "mdream-python") | .version')
+          DIST_NAME=$(python -c "import tomllib; print(tomllib.load(open('python/pyproject.toml', 'rb'))['project']['name'])")
+          echo "dist=$DIST_NAME" >> "$GITHUB_OUTPUT"
+          echo "crate=$CRATE_VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$TAG_VERSION" != "$CRATE_VERSION" ]; then
+            echo "::error::Tag py-v$TAG_VERSION does not match mdream-python crate version $CRATE_VERSION. Bump crates/python/Cargo.toml (and Cargo.lock) first."
+            exit 1
+          fi
+
+      - name: Download wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          pattern: wheels-*
+          merge-multiple: true
+
+      - name: Verify wheel artifacts
+        run: |
+          ls -la dist/
+          ls dist/*.whl >/dev/null || { echo "::error::No wheels in dist/"; exit 1; }
+          ls dist/*.tar.gz >/dev/null || { echo "::error::No sdist in dist/"; exit 1; }
+
+      # Publish unless every built artifact is already on PyPI. Checking per
+      # file (not per version) lets a run that failed midway upload the rest.
+      - name: Decide whether to publish
+        id: pypi
+        env:
+          DIST_NAME: ${{ steps.version.outputs.dist }}
+          CRATE_VERSION: ${{ steps.version.outputs.crate }}
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, pathlib, sys, urllib.error, urllib.request
+
+          url = f"https://pypi.org/pypi/{os.environ['DIST_NAME']}/{os.environ['CRATE_VERSION']}/json"
+          try:
+              with urllib.request.urlopen(url) as r:
+                  remote = {f["filename"] for f in json.load(r)["urls"]}
+          except urllib.error.HTTPError as e:
+              if e.code != 404:
+                  raise
+              remote = set()
+
+          local = {p.name for p in pathlib.Path("dist").iterdir() if p.is_file()}
+          missing = sorted(local - remote)
+          for name in missing:
+              print(f"::notice::Not yet on PyPI: {name}", file=sys.stderr)
+          print(f"publish={'true' if missing else 'false'}")
+          PY
+
+      - name: Publish to PyPI
+        if: steps.pypi.outputs.publish == 'true'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: dist
+          skip-existing: true

@@ -1,0 +1,154 @@
+name: Python
+
+# PyPI releases live in pypi.yaml (trusted publisher is registered to that file).
+
+# CI and wheels for the mdream PyO3 binding (crates/python).
+#
+# The binding crate lands from a parallel implementation convoy, so the
+# `gate` job skips `test` and `wheels` cleanly while crates/python
+# is absent on a ref; the workflow turns itself on with the first change under
+# crates/python (pull_request paths filter) and after the merge (branch push).
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+      - 1.x
+  pull_request:
+    paths:
+      - 'crates/python/**'
+      # The binding wraps the core crate, so core changes must re-run Python tests.
+      - 'crates/core/**'
+      - crates/Cargo.toml
+      - crates/Cargo.lock
+      - .github/workflows/python.yml
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to resume (for example, v2.2.1)
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  # Never cancel an in-flight publish; queue resumed releases instead.
+  cancel-in-progress: false
+
+env:
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  gate:
+    name: Python crate present
+    runs-on: ubuntu-latest
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Resume runs gate the requested tag, not the dispatch branch, so
+          # gate and test/wheels/publish always inspect the same tree.
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || '' }}
+
+      - name: Check crates/python exists
+        id: check
+        run: |
+          if [ -d crates/python ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "crates/python is absent on this ref; skipping Python jobs."
+          fi
+
+  # ── PR/test job: maturin build + import + pytest on both wheel platforms ──
+  test:
+    name: Python Tests (${{ matrix.os }})
+    needs: gate
+    if: needs.gate.outputs.present == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-latest is x86_64 native, macos-latest is arm64 native: the
+        # same two platforms the wheel job builds for.
+        os:
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Resume runs build the requested tag, not the dispatch branch.
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || '' }}
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          # The binding's abi3 floor (requires-python >=3.10); proves the
+          # minimum supported interpreter, not just the newest.
+          python-version: '3.10'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates -> target
+
+      - name: Build and install the extension
+        working-directory: crates/python
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade maturin pytest
+          .venv/bin/maturin develop
+
+      - name: Import check and pytest
+        working-directory: crates/python
+        run: |
+          .venv/bin/python -c "import mdream; print(mdream.__version__)"
+          .venv/bin/pytest tests/
+
+  # ── Wheel job: macOS arm64 + Linux x86_64 wheels, sdist, artifacts ──
+  wheels:
+    name: Wheels (${{ matrix.target }})
+    needs: gate
+    if: needs.gate.outputs.present == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            manylinux: 2_28
+            sdist: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || '' }}
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates -> target
+
+      # maturin-action installs its own stable Rust toolchain when the runner
+      # has none; manylinux builds run inside the manylinux container.
+      - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          sdist: ${{ matrix.sdist }}
+          args: --release -m crates/python/Cargo.toml --out dist --locked
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheels-${{ matrix.target }}
+          path: dist/
+          if-no-files-found: error
