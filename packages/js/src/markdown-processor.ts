@@ -1642,7 +1642,12 @@ function finalizeBlockquote(state: MarkdownState): boolean {
   state.bufferedBlockquoteDepth = state.blockquotes.length
 
   const buffer = state.buffer
-  const content = trimAsciiWhitespaceEnd(buffer.slice(frame.fragment).join(''))
+  const rawContent = buffer.slice(frame.fragment).join('')
+  let content = trimAsciiWhitespaceEnd(rawContent)
+  const marker = writtenListMarker(content)
+  const endsWithMarker = marker !== 0 && content.charCodeAt(content.length - 1) === marker
+  if (endsWithMarker && content.startsWith('\n'))
+    content = content.slice(1)
   // An empty quote whose start followed terminated output writes nothing.
   // The context is the enter-time snapshot: streaming may have already
   // yielded and compacted the characters this decision used to read back.
@@ -1665,7 +1670,7 @@ function finalizeBlockquote(state: MarkdownState): boolean {
       const unindented = stripBlockquoteListIndent(line, frame.listIndent)
       return unindented ? `${prefix} ${unindented}` : prefix
     })
-    .join('\n')
+    .join('\n') + (endsWithMarker && rawContent.endsWith(' ') ? ' ' : '')
 
   // Captured boundaries are ordered. Walk the quote's lines once when its
   // writer prefixes them, including nested quotes and list indentation.
@@ -2113,8 +2118,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
   let captionLineOpens = false
   const gfmLifecycle: GfmLifecycleState = { openCodeSpans: [], quoteWritten: false }
   // Fragment indices before and after an open ATX heading's prefix, so a heading with no text can be taken back.
-  let headingStart = -1
-  let headingContent = -1
+  const headings: { element: ElementNode, start: number, content: number }[] = []
   let openLinkFragment = -1
   let openLinkHeadingBreak = false
   let openLinkCaptionBreakRun = 0
@@ -4215,10 +4219,8 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
 
     // A heading with no text writes nothing, not even its `#`.
     let droppedHeading = false
-    if (eventType === NodeEventExit && tagId >= TAG_H1 && tagId <= TAG_H6 && headingStart >= 0) {
-      const start = headingStart
-      const content = headingContent
-      headingStart = -1
+    if (eventType === NodeEventExit && headings.at(-1)?.element === element) {
+      const { start, content } = headings.pop()!
       if (start <= content && content <= buff.length) {
         let empty = true
         for (let index = content; index < buff.length; index++) {
@@ -4291,10 +4293,9 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
         }
       }
     }
-    if (eventType === NodeEventEnter && tagId >= TAG_H1 && tagId <= TAG_H6 && headingStart < 0 && output && !handler?.literalEnter
+    if (eventType === NodeEventEnter && tagId >= TAG_H1 && tagId <= TAG_H6 && output && !handler?.literalEnter
       && !state.depthMap[TAG_A] && !isInsideTableCell(state)) {
-      headingStart = outputStart
-      headingContent = buff.length
+      headings.push({ element, start: outputStart, content: buff.length })
     }
     if (eventType === NodeEventEnter && handler?.literalEnter && (handler.isInline ?? tagId === -1) && outputStart < buff.length)
       literalOpeners.push(element.depth, buff.length)
@@ -4533,6 +4534,12 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     // every hold, so scan and trim that position once. The final call drops
     // every hold: a fence whose owner reset the open flag before exiting can
     // never be rewritten, and holding it suppressed the whole output.
+    while (!final && headings.length && !openMarkerCount && openLinkFragment === -1 && !gfmLifecycle.openCodeSpans.length) {
+      const heading = headings.at(-1)!
+      if (!state.buffer.slice(heading.content).some(hasNonWhitespace))
+        break
+      headings.pop()
+    }
     let heldFragment = final
       ? Infinity
       : Math.min(
@@ -4541,7 +4548,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
           gfmLifecycle.openCodeSpans[0]?.fragment ?? Infinity,
           state.emptyItemFragment ?? Infinity,
           state.codeFence?.fragment ?? Infinity,
-          headingStart === -1 ? Infinity : headingStart,
+          headings[0]?.start ?? Infinity,
           openLinkFragment === -1 ? Infinity : openLinkFragment < -1 ? -openLinkFragment - 2 : openLinkFragment - Number(openLinkHeadingBreak),
         )
     if (!final && literalOpeners.length)
@@ -4627,7 +4634,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
         || state.outputPositions || state.blockquotes.length
         || gfmLifecycle.openCodeSpans.length || openLinkFragment !== -1
         || captionFrameCount || literalOpeners.length || state.codeFence
-        || state.emptyItemFragment !== undefined) {
+        || state.emptyItemFragment !== undefined || headings.length) {
         return false
       }
       const removed = fragment - 1

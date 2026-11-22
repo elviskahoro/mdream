@@ -1261,7 +1261,7 @@ pub struct ConvertState {
   /// Buffer position at heading start (for extracting heading text)
   heading_buffer_start: usize,
   /// Open ATX heading: (absolute offsets: before its enter, after its prefix).
-  heading_open: Option<(usize, usize)>,
+  heading_open: Vec<(usize, usize, usize)>,
   #[cfg(feature = "html")]
   html_frames: Vec<HtmlFrame>,
 
@@ -1676,7 +1676,7 @@ impl ConvertState {
       fragment_links: Vec::new(),
       in_heading: false,
       heading_buffer_start: 0,
-      heading_open: None,
+      heading_open: Vec::new(),
       #[cfg(feature = "html")]
       html_frames: Vec::new(),
 
@@ -3513,6 +3513,7 @@ impl ConvertState {
     if !plain_text!(self) && self.clean_flags() & CLEAN_FRAGMENTS != 0 {
       return String::new();
     }
+    self.release_nonempty_headings();
     self.flush_settled_blockquote_lines();
     let buf_len = self.buffer.len();
     // Trailing spaces at the buffer end are never final outside <pre>: a later
@@ -3581,7 +3582,7 @@ impl ConvertState {
       stable_end = stable_end.min(hold_before(&self.buffer, frame.content_start));
     }
     // An empty heading takes its prefix back at close, so nothing from it on is final.
-    if let Some((start, _)) = self.heading_open {
+    if let Some(&(start, _, _)) = self.heading_open.first() {
       stable_end = stable_end.min(hold_before(
         &self.buffer,
         start.saturating_sub(self.drained),
@@ -3768,6 +3769,19 @@ impl ConvertState {
   /// removal. Rewrites of already-yielded bytes can't be un-sent by any
   /// streaming API and diverge from one-shot regardless of drain. The
   /// `disable_drain` equivalence test guards this without enumerating rewrites.
+  fn release_nonempty_headings(&mut self) {
+    if !self.open_markers.is_empty() || self.open_link_hold_floor().is_some() || !self.code_spans.is_empty() {
+      return;
+    }
+    while let Some(&(_, content, _)) = self.heading_open.last() {
+      let content = content.saturating_sub(self.drained);
+      if content > self.buffer.len() || self.buffer.as_bytes()[content..].iter().all(|&b| is_whitespace(b)) {
+        break;
+      }
+      self.heading_open.pop();
+    }
+  }
+
   fn drain_streamed_prefix(&mut self) {
     #[cfg(any(test, fuzzing))]
     if self.disable_drain {
@@ -3809,7 +3823,7 @@ impl ConvertState {
     if let Some(frame) = self.blockquotes.first() {
       drain_end = drain_end.min(keep_two_before(&self.buffer, frame.content_start));
     }
-    if let Some((start, _)) = self.heading_open {
+    if let Some(&(start, _, _)) = self.heading_open.first() {
       drain_end = drain_end.min(keep_two_before(
         &self.buffer,
         start.saturating_sub(self.drained),

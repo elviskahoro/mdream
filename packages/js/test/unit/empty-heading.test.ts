@@ -29,8 +29,23 @@ describe('empty headings', () => {
     ['<ul><li><h1></h1><p>b</p></li></ul>', '- b'],
     ['<ol start="10"><li><h1></h1><p>b</p></li></ol>', '10. b'],
     ['<h1></h1>', ''],
+    ['<h1><span><h2></h2></span></h1>', ''],
+    ['<h1><span><h2></h2></span>outer</h1>', '#\n\nouter'],
+    ['<h1>outer<span><h2></h2></span></h1>', '# outer'],
     ['<h1>T</h1><h2></h2><h3>U</h3>', '# T\n\n### U'],
   ]
+
+  it('emits content before an unclosed heading ends', async () => {
+    const input = new ReadableStream<string>({
+      start(controller) {
+        controller.enqueue(`<h1>${'<span>word</span>'.repeat(1000)}`)
+      },
+    })
+    const iterator = streamHtmlToMarkdown(input)[Symbol.asyncIterator]()
+    const first = await iterator.next()
+    expect(first.value).toContain('# word')
+    await iterator.return?.()
+  })
 
   it.each(cases)('emits nothing for %s', (html, expected) => {
     expect(htmlToMarkdown(html)).toBe(expected)

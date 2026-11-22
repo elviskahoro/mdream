@@ -2991,11 +2991,11 @@ impl ConvertState {
       && tag_id.is_some_and(|id| id.wrapping_sub(TAG_H1) < 6)
       && self.depth_map[TAG_A as usize] == 0
       && !self.in_table_cell()
-      && self.heading_open.is_none()
     {
-      self.heading_open = Some((
+      self.heading_open.push((
         self.drained + output_start,
         self.drained + self.buffer.len(),
+        self.stack[stack_len - 1].depth,
       ));
     }
     if open_void_enter {
@@ -3860,7 +3860,8 @@ impl ConvertState {
     // owes the block break, which the write below settles.
     let mut dropped_heading = false;
     if tag_id.is_some_and(|id| id.wrapping_sub(TAG_H1) < 6)
-      && let Some((start, content)) = self.heading_open.take()
+      && self.heading_open.last().is_some_and(|&(_, _, depth)| depth == node.depth)
+      && let Some((start, content, _)) = self.heading_open.pop()
       && start >= self.drained
       && let (start, content) = (start - self.drained, content - self.drained)
       && content <= self.buffer.len()

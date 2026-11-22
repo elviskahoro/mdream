@@ -147,7 +147,7 @@ describe('heading hashes followed by a blank of its own', () => {
   it.each([
     ['<label>x <h1>&#9;</h1>x</label>', 'x\n\nx'],
     ['<label>x <h1>&#9;</h1></label>', 'x'],
-    ['<h2><u>x <h1>&#9;</h1></u></h2>', '## <u>x \\# \t</u>'],
+    ['<h2><u>x <h1>&#9;</h1></u></h2>', '## <u>x </u>'],
     ['<figcaption>x <h1>&#9;</h1>x</figcaption>', '*x\n\nx*'],
     ['<kbd>x <h1>&#9;</h1></kbd>', '`x `'],
     // The run and the blank in one entry were escaped already.

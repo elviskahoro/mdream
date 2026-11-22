@@ -7017,3 +7017,17 @@ fn vertical_tab_hold_inside_emphasis_is_charged_to_the_node_cap() {
     assert_eq!(stream_chunks(&html, width, opts.clone()), expected.markdown);
   }
 }
+
+#[test]
+fn nonempty_unclosed_heading_streams_before_finish() {
+  let mut processor = MarkdownStreamProcessor::new(HtmlToMarkdownOptions::default());
+  let html = format!("<h1>{}", "<span>word</span>".repeat(1000));
+  assert!(processor.process_chunk(&html).contains("# word"));
+}
+
+#[test]
+fn empty_heading_with_unclosed_inline_markup_streams_like_one_shot() {
+  for html in ["<li><h3><em>", "<li><h3><a href=/u>"] {
+    assert_eq!(stream_chunks(html, 1, HtmlToMarkdownOptions::default()), html_to_markdown(html, HtmlToMarkdownOptions::default()));
+  }
+}
