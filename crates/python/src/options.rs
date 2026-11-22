@@ -7,7 +7,9 @@
 //! field-for-field mirror of `to_core_opts` in `crates/node/src/lib.rs`.
 //!
 //! Key casing is snake_case only. Divergence from NAPI (human-approved): the
-//! `max_node_bytes` safety cap is exposed (`Option<usize>`, `0` = unlimited).
+//! `max_node_bytes` safety cap is exposed (`Option<usize>`, `0` = unlimited),
+//! and `clean.empty_link_text` defaults to on (NAPI defaults it off) so empty
+//! links like `[](u)` are dropped; opt out with `clean={"empty_link_text": False}`.
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -61,7 +63,8 @@ const TAG_OVERRIDE_KEYS: &[&str] = &[
 
 /// Parses the public `options` dict into core options plus output format.
 ///
-/// `None` yields the defaults. Unknown keys at any level, invalid `format`
+/// `None` yields the Python defaults, including `empty_link_text` cleanup
+/// (unlike the core defaults). Unknown keys at any level, invalid `format`
 /// values, and negative numerics raise `ValueError`; wrong value types raise
 /// `TypeError`.
 pub fn parse_options(
