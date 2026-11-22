@@ -3275,6 +3275,7 @@ impl ConvertState {
 
     // A raw-HTML anchor `dropImages` left without content goes with its image.
     if raw_html_anchor
+      && !self.link.hold_released
       && self.link.image_dropped
       && self.link.raw_open_len != 0
       && self

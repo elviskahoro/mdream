@@ -5452,6 +5452,21 @@ fn drop_images_removes_images_and_image_only_links() {
   }
 }
 
+#[test]
+fn drop_images_preserves_released_raw_anchor() {
+  let options = HtmlToMarkdownOptions { drop_images: true, ..Default::default() };
+  let prefix = format!(r#"<details><a href="/x">{}"#, "visible text ".repeat(1000));
+  let suffix = format!("{}<img src=\"x\"></a></details>", " &nbsp;".repeat(20));
+  let html = format!("{prefix}more text <span></span>{suffix}");
+  let mut processor = MarkdownStreamProcessor::new(options.clone());
+  let mut output = processor.process_chunk(&prefix);
+  output.push_str(&processor.process_chunk("more text <span></span>"));
+  assert!(output.contains(r#"<a href="/x">"#));
+  output.push_str(&processor.process_chunk(&suffix));
+  output.push_str(&processor.finish());
+  assert_eq!(output, html_to_markdown(&html, options));
+}
+
 // ── emptyLinkText ──
 
 #[test]
