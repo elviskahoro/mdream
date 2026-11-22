@@ -6591,36 +6591,33 @@ fn an_empty_heading_in_a_list_item_ends_its_line() {
   for (html, expected) in [
     (
       "<main><ul><li><h3></h3><p>Partner description</p></li></ul></main>",
-      "- ###\n\n  Partner description",
+      "- Partner description",
     ),
     (
       "<ol><li><h3></h3><p>Partner description</p></li></ol>",
-      "1. ###\n\n   Partner description",
+      "1. Partner description",
     ),
-    (
-      "<ol start=\"10\"><li><h1></h1><p>b</p></li></ol>",
-      "10. #\n\n    b",
-    ),
-    ("<ul><li><h3></h3></li><li>b</li></ul>", "- ###\n- b"),
+    ("<ol start=\"10\"><li><h1></h1><p>b</p></li></ol>", "10. b"),
+    ("<ul><li><h3></h3></li><li>b</li></ul>", "-\n- b"),
     (
       "<ul><li>a<ul><li>b<ul><li><h3></h3><p>c</p></li></ul></li></ul></li></ul>",
-      "- a\n  - b\n    - ###\n\n      c",
+      "- a\n  - b\n    - c",
     ),
     (
       "<ul><li><pre>x</pre><h3></h3><p>b</p></li></ul>",
-      "- ```\n  x\n  ```\n\n  ###\n\n  b",
+      "- ```\n  x\n  ```\n\n  b",
     ),
     (
       "<ul><li><h2></h2><table><tr><td>x</td></tr></table></li></ul>",
-      "- ##\n\n  | x |\n  | --- |",
+      "- | x |\n  | --- |",
     ),
     (
       "<blockquote><ol><li><h3></h3><p>b</p></li></ol></blockquote>",
-      "> 1. ###\n>\n>    b",
+      "> 1. b",
     ),
     (
       "<ul><li><blockquote><h3></h3><p>b</p></blockquote></li></ul>",
-      "- \n  > ###\n  >\n  > b",
+      "- \n  > b",
     ),
   ] {
     assert_eq!(convert(html), expected, "html={html:?}");
@@ -6659,16 +6656,16 @@ fn a_heading_in_a_list_item_keeps_its_own_line() {
     ),
     (
       "<ul><li>Intro <h3></h3><p>Body</p></li></ul>",
-      "- Intro\n\n  ###\n\n  Body",
+      "- Intro\n\n  Body",
     ),
-    ("<ul><li><h3></h3>Text</li></ul>", "- ###\n\n  Text"),
+    ("<ul><li><h3></h3>Text</li></ul>", "- Text"),
     (
       "<ol><li><h1>T</h1>\nx</li><li>y</li></ol>",
       "1. # T\n\n   x\n2. y",
     ),
     (
       "<ul><li>a<ul><li>b<ul><li><h3></h3>c</li></ul></li></ul></li></ul>",
-      "- a\n  - b\n    - ###\n\n      c",
+      "- a\n  - b\n    - c",
     ),
     (
       "<ol start=\"10\"><li><h3>T</h3>x</li></ol>",
@@ -6678,13 +6675,10 @@ fn a_heading_in_a_list_item_keeps_its_own_line() {
       "<ul><li><h3>Title</h3><strong>Text</strong></li></ul>",
       "- ### Title\n\n  **Text**",
     ),
-    (
-      "<ul><li><h3></h3><code>x</code></li></ul>",
-      "- ###\n\n  `x`",
-    ),
+    ("<ul><li><h3></h3><code>x</code></li></ul>", "- `x`"),
     ("<ul><li><h3>T</h3><em></em>x</li></ul>", "- ### T\n\n  x"),
     ("<ul><li><h3>T</h3># x</li></ul>", "- ### T\n\n  \\# x"),
-    ("<ul><li>x <h2></h2>  y</li></ul>", "- x\n\n  ##\n\n  y"),
+    ("<ul><li>x <h2></h2>  y</li></ul>", "- x y"),
     (
       "<ul><li><span><h3>T</h3>more</span></li></ul>",
       "- ### T\n\n  more",
@@ -6870,11 +6864,11 @@ fn a_block_that_opens_a_code_block_in_a_list_item_stays_out_of_the_code() {
   for (html, expected) in [
     (
       "<ul><li><h1></h1><pre><div>x</div></pre></li></ul>",
-      "- #\n\n  ```\n  x\n  ```",
+      "- ```\n  x\n  ```",
     ),
     (
       "<ul><li><h1></h1><pre> <p>x</p></pre></li></ul>",
-      "- #\n\n  ```\n  x\n  ```",
+      "- ```\n  x\n  ```",
     ),
     (
       "<ul><li>a<pre><p>x</p></pre></li></ul>",
@@ -7463,10 +7457,7 @@ fn clean_fragments_survives_a_heading_whose_content_is_all_dropped() {
       "{html:?}"
     );
   }
-  assert_eq!(
-    convert_with_clean("x x<h4><style>", clean.clone()),
-    "x x\n\n####"
-  );
+  assert_eq!(convert_with_clean("x x<h4><style>", clean.clone()), "x x");
 
   // The crash was found through the streaming target, and the offset it slices
   // from is rebased by the drain, so cover narrow chunk boundaries too.
@@ -8021,7 +8012,7 @@ fn a_heading_materializing_a_list_caption_keeps_its_prefix_inline() {
     ),
     (
       r#"<ul><li><figure><figcaption><q><h3></h3></q>s</figcaption></figure></li></ul>"#,
-      "- *\"### \"s*",
+      "- *\"\"s*",
     ),
     (
       r#"<ul><li><figure><figcaption><a href="/l"></a><h3>T</h3></figcaption></figure></li></ul>"#,
@@ -8323,7 +8314,7 @@ fn heading_overrides_inside_list_code_keep_their_output() {
     (
       r#"<ul><li><code><h6>
 </h6><h3></h3>x</code></li></ul>"#,
-      "- `###### ### x`",
+      "- `### x`",
       "h3",
       TagOverrideConfig {
         enter: Some("### ".into()),
@@ -10829,4 +10820,18 @@ fn frontmatter_keeps_heading_fences_reliable() {
     )
     .contains("## x #")
   );
+}
+
+#[test]
+fn an_empty_heading_emits_nothing() {
+  for (html, expected) in [
+    ("<h1></h1><p>body</p>", "body"),
+    ("<p>a</p><h2> </h2><p>b</p>", "a\n\nb"),
+    ("<p>a</p><h2><span></span></h2><p>b</p>", "a\n\nb"),
+    ("<blockquote><h1></h1><p>x</p></blockquote>", "> x"),
+    ("<h1></h1>", ""),
+    ("<h1>T</h1><h2></h2><h3>U</h3>", "# T\n\n### U"),
+  ] {
+    assert_eq!(convert(html), expected, "html={html:?}");
+  }
 }

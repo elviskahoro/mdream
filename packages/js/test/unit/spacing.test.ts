@@ -550,11 +550,11 @@ describe('div heading marker after buffer rewrites', () => {
   it.each([
     [
       '<ul><li><dl><blockquote><ul><li><h1></h1><div></div></li></ul></blockquote><span>#</span><div>y</div></dl></li></ul>',
-      '- <dl>\n  > - ## y</dl>',
+      '- <dl>\n  > -# y</dl>',
     ],
     [
       '<ul><li><blockquote><ul><li><span>1</span><span>#</span><div></div></li></ul></blockquote><span><h1></h1><div></div><br>y</span></li></ul>',
-      '- \n  > - 1#\n\n  #\n\n    \n  y',
+      '- \n  > - 1#\n\n    \n  y',
     ],
   ])('keeps one-shot and streamed spacing correct after rewriting a line', async (html, expected) => {
     expect(htmlToMarkdown(html)).toBe(expected)

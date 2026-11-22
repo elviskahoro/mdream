@@ -1260,6 +1260,8 @@ pub struct ConvertState {
   in_heading: bool,
   /// Buffer position at heading start (for extracting heading text)
   heading_buffer_start: usize,
+  /// Open ATX heading: (absolute offsets: before its enter, after its prefix).
+  heading_open: Option<(usize, usize)>,
   #[cfg(feature = "html")]
   html_frames: Vec<HtmlFrame>,
 
@@ -1674,6 +1676,7 @@ impl ConvertState {
       fragment_links: Vec::new(),
       in_heading: false,
       heading_buffer_start: 0,
+      heading_open: None,
       #[cfg(feature = "html")]
       html_frames: Vec::new(),
 
@@ -3577,6 +3580,13 @@ impl ConvertState {
     if let Some(frame) = self.blockquotes.first() {
       stable_end = stable_end.min(hold_before(&self.buffer, frame.content_start));
     }
+    // An empty heading takes its prefix back at close, so nothing from it on is final.
+    if let Some((start, _)) = self.heading_open {
+      stable_end = stable_end.min(hold_before(
+        &self.buffer,
+        start.saturating_sub(self.drained),
+      ));
+    }
     // Hold the bracket and preceding spaces while the close can rewrite them.
     if let Some(bracket_pos) = self.open_link_hold_floor() {
       stable_end = stable_end.min(hold_before(&self.buffer, bracket_pos));
@@ -3798,6 +3808,12 @@ impl ConvertState {
     }
     if let Some(frame) = self.blockquotes.first() {
       drain_end = drain_end.min(keep_two_before(&self.buffer, frame.content_start));
+    }
+    if let Some((start, _)) = self.heading_open {
+      drain_end = drain_end.min(keep_two_before(
+        &self.buffer,
+        start.saturating_sub(self.drained),
+      ));
     }
     // Answer a pending marker-line guard when the item's first content already
     // does, so the hold below never outlives the marker's own line.

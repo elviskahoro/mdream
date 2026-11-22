@@ -2112,6 +2112,9 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
   let captionLineHead = ''
   let captionLineOpens = false
   const gfmLifecycle: GfmLifecycleState = { openCodeSpans: [], quoteWritten: false }
+  // Fragment indices before and after an open ATX heading's prefix, so a heading with no text can be taken back.
+  let headingStart = -1
+  let headingContent = -1
   let openLinkFragment = -1
   let openLinkHeadingBreak = false
   let openLinkCaptionBreakRun = 0
@@ -4210,13 +4213,43 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     if (pendingCloser && output && breaksPendingCloser(output, eventType === NodeEventEnter, pendingCloser))
       pendingCloser = 0
 
+    // A heading with no text writes nothing, not even its `#`.
+    let droppedHeading = false
+    if (eventType === NodeEventExit && tagId >= TAG_H1 && tagId <= TAG_H6 && headingStart >= 0) {
+      const start = headingStart
+      const content = headingContent
+      headingStart = -1
+      if (start <= content && content <= buff.length) {
+        let empty = true
+        for (let index = content; index < buff.length; index++) {
+          if (hasNonWhitespace(buff[index]!)) {
+            empty = false
+            break
+          }
+        }
+        if (empty) {
+          state.outputPositions?.replace(start, buff.length, [])
+          buff.length = start
+          noteBufferRewrite(state)
+          droppedHeading = true
+          // The exit's break was sized against the heading's own prefix.
+          if (output && !handler?.literalExit) {
+            if (configuredNewLines > 0)
+              trimTrailingSpaces(buff)
+            const owed = buff.length === 0 && !hasYieldedContent ? 0 : Math.max(0, configuredNewLines - newlineRunBefore(buff, buff.length))
+            output = owed > 0 ? ['\n'.repeat(owed)] : undefined
+          }
+        }
+      }
+    }
+
     // Only an ATX prefix can take in the text after it. Inside `<pre>` that
     // text is code, and inside a caption the emphasis wrapping it, either of
     // which a break would split.
     if (eventType === NodeEventExit && tagId >= TAG_H1 && tagId <= TAG_H6
       && state.depthMap[TAG_LI] && !state.depthMap[TAG_PRE] && captionFrameCount === 0 && !state.depthMap[TAG_A]
       && !isInsideTableCell(state) && (!handler?.literalEnter || handler.literalEnterHeading)
-      && !headingKeptInlineInItem(element)) {
+      && !headingKeptInlineInItem(element) && !droppedHeading) {
       if (handler?.literalEnterHeading) {
         if (handler.literalExit)
           escapeTrailingHeadingHashes(state)
@@ -4257,6 +4290,11 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
           state.lastContentCache = fragment
         }
       }
+    }
+    if (eventType === NodeEventEnter && tagId >= TAG_H1 && tagId <= TAG_H6 && headingStart < 0 && output && !handler?.literalEnter
+      && !state.depthMap[TAG_A] && !isInsideTableCell(state)) {
+      headingStart = outputStart
+      headingContent = buff.length
     }
     if (eventType === NodeEventEnter && handler?.literalEnter && (handler.isInline ?? tagId === -1) && outputStart < buff.length)
       literalOpeners.push(element.depth, buff.length)
@@ -4503,6 +4541,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
           gfmLifecycle.openCodeSpans[0]?.fragment ?? Infinity,
           state.emptyItemFragment ?? Infinity,
           state.codeFence?.fragment ?? Infinity,
+          headingStart === -1 ? Infinity : headingStart,
           openLinkFragment === -1 ? Infinity : openLinkFragment < -1 ? -openLinkFragment - 2 : openLinkFragment - Number(openLinkHeadingBreak),
         )
     if (!final && literalOpeners.length)

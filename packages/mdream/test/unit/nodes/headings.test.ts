@@ -4,7 +4,7 @@ import { engines, htmlToMarkdown, resolveEngine, streamHtmlToMarkdown } from '..
 describe.each(engines)('headings $name', (engineConfig) => {
   it.each([
     ['<div>x</div>', { div: { enter: '[', exit: ']' } }, '[x]'],
-    ['<ul><li><h3></h3><div></div></li></ul>', { div: { exit: 'X' } }, '- ###\n\n  X'],
+    ['<ul><li><h3></h3><div></div></li></ul>', { div: { exit: 'X' } }, '- X'],
     ['<ul><li><h3></h3><div>x</div></li></ul>', { h3: { enter: '###', exit: '' } }, '- ###\n\n  x'],
   ] as const)('preserves div overrides and list heading markers: %s', async (html, tagOverrides, expected) => {
     const engine = await resolveEngine(engineConfig.engine)
@@ -173,15 +173,15 @@ describe.each(engines)('headings $name', (engineConfig) => {
   })
 
   it.each([
-    ['<ul><li><ul><li><h3></h3><figure><figcaption><code><em><div></div></em></code></figcaption></figure><div>x</div></li></ul></li></ul>', '-\n  - ###\n\n    x'],
-    ['<ul><li><h3></h3><figure><figcaption><em></em></figcaption></figure>x</li></ul>', '- ###\n\n  x'],
-    ['<ul><li><h3></h3><figcaption></figcaption>x</li></ul>', '- ###\n\n  x'],
+    ['<ul><li><ul><li><h3></h3><figure><figcaption><code><em><div></div></em></code></figcaption></figure><div>x</div></li></ul></li></ul>', '-\n  - x'],
+    ['<ul><li><h3></h3><figure><figcaption><em></em></figcaption></figure>x</li></ul>', '- x'],
+    ['<ul><li><h3></h3><figcaption></figcaption>x</li></ul>', '- x'],
     // A heading with text owes the same break.
     ['<ul><li><h3>T</h3><figcaption></figcaption>x</li></ul>', '- ### T\n\n  x'],
     // A break the empty caption already wrote is not doubled.
-    ['<ul><li><h3></h3><figcaption><div></div></figcaption>x</li></ul>', '- ###\n\n  x'],
-    ['<ul><li><h3></h3><figcaption><br></figcaption>x</li></ul>', '- ###  \n  x'],
-    ['<ul><li><h3></h3><figure><figcaption>cap</figcaption></figure><div>x</div></li></ul>', '- ###\n\n  *cap*\n\n  x'],
+    ['<ul><li><h3></h3><figcaption><div></div></figcaption>x</li></ul>', '- x'],
+    ['<ul><li><h3></h3><figcaption><br></figcaption>x</li></ul>', '-  \n  x'],
+    ['<ul><li><h3></h3><figure><figcaption>cap</figcaption></figure><div>x</div></li></ul>', '- *cap*\n\n  x'],
   ])('keeps the heading break owed past an empty caption: %s', async (html, expected) => {
     const engine = await resolveEngine(engineConfig.engine)
     expect(engine.htmlToMarkdown(html)).toBe(expected)
@@ -262,7 +262,7 @@ describe.each(engines)('headings $name', (engineConfig) => {
   // still opens its own line, as it does at the root.
   it.each([
     ['<ul><li><pre>Intro<span><h3>T</h3></span></pre></li></ul>', '- ```\n  Intro ### T\n  ```', { span: 'strong' }],
-    ['<ul><li><code><h6>\n</h6><h3></h3>x</code></li></ul>', '- `###### ### x`', { h3: { enter: '### ', exit: '' } }],
+    ['<ul><li><code><h6>\n</h6><h3></h3>x</code></li></ul>', '- `### x`', { h3: { enter: '### ', exit: '' } }],
   ] as const)('preserves heading overrides inside list code: %s', async (html, expected, tagOverrides) => {
     const engine = await resolveEngine(engineConfig.engine)
     expect(htmlToMarkdown(html, { engine, plugins: { tagOverrides } })).toBe(expected)
@@ -270,7 +270,7 @@ describe.each(engines)('headings $name', (engineConfig) => {
 
   it.each([
     ['<ul><li><figure><figcaption><q><h3>T</h3></q>s</figcaption></figure></li></ul>', '- *"### T"s*'],
-    ['<ul><li><figure><figcaption><q><h3></h3></q>s</figcaption></figure></li></ul>', '- *"### "s*'],
+    ['<ul><li><figure><figcaption><q><h3></h3></q>s</figcaption></figure></li></ul>', '- *""s*'],
     ['<ul><li><figure><figcaption><a href="/l"></a><h3>T</h3></figcaption></figure></li></ul>', '- *[](/l)### T*'],
     ['<ul><li><figure><figcaption><del><h3>T</h3></del></figcaption></figure></li></ul>', '- *~~### T~~*'],
   ])('keeps a heading opening a list caption inline: %s', async (html, expected) => {
@@ -279,22 +279,22 @@ describe.each(engines)('headings $name', (engineConfig) => {
   })
 
   it.each([
-    ['<main><ul><li><h3></h3><p>Partner description</p></li></ul></main>', '- ###\n\n  Partner description'],
-    ['<ol><li><h3></h3><p>Partner description</p></li></ol>', '1. ###\n\n   Partner description'],
-    ['<ol start="10"><li><h1></h1><p>b</p></li></ol>', '10. #\n\n    b'],
-    ['<ul><li><h3></h3></li><li>b</li></ul>', '- ###\n- b'],
-    ['<ul><li>a<ul><li>b<ul><li><h3></h3><p>c</p></li></ul></li></ul></li></ul>', '- a\n  - b\n    - ###\n\n      c'],
-    ['<ol><li>a<ol><li>b<ol><li><h3></h3><p>c</p></li></ol></li></ol></li></ol>', '1. a\n   1. b\n      1. ###\n\n         c'],
-    ['<ul><li><pre>x</pre><h3></h3><p>b</p></li></ul>', '- ```\n  x\n  ```\n\n  ###\n\n  b'],
-    ['<ul><li><hr><h3></h3><p>b</p></li></ul>', '- ***\n\n  ###\n\n  b'],
-    ['<ul><li><h2></h2><pre>code</pre></li></ul>', '- ##\n\n  ```\n  code\n  ```'],
-    ['<ul><li><h2></h2><table><tr><td>x</td></tr></table></li></ul>', '- ##\n\n  | x |\n  | --- |'],
-    ['<ul><li><h2></h2><ul><li>b</li></ul></li></ul>', '- ##\n  - b'],
-    ['<blockquote><ul><li><h3></h3><p>b</p></li></ul></blockquote>', '> - ###\n>\n>   b'],
-    ['<blockquote><ol><li><h3></h3><p>b</p></li></ol></blockquote>', '> 1. ###\n>\n>    b'],
-    ['<ul><li><blockquote><h3></h3><p>b</p></blockquote></li></ul>', '- \n  > ###\n  >\n  > b'],
-    ['<h3></h3><p>Partner description</p>', '###\n\nPartner description'],
-    ['<blockquote><h3></h3><p>b</p></blockquote>', '> ###\n>\n> b'],
+    ['<main><ul><li><h3></h3><p>Partner description</p></li></ul></main>', '- Partner description'],
+    ['<ol><li><h3></h3><p>Partner description</p></li></ol>', '1. Partner description'],
+    ['<ol start="10"><li><h1></h1><p>b</p></li></ol>', '10. b'],
+    ['<ul><li><h3></h3></li><li>b</li></ul>', '-\n- b'],
+    ['<ul><li>a<ul><li>b<ul><li><h3></h3><p>c</p></li></ul></li></ul></li></ul>', '- a\n  - b\n    - c'],
+    ['<ol><li>a<ol><li>b<ol><li><h3></h3><p>c</p></li></ol></li></ol></li></ol>', '1. a\n   1. b\n      1. c'],
+    ['<ul><li><pre>x</pre><h3></h3><p>b</p></li></ul>', '- ```\n  x\n  ```\n\n  b'],
+    ['<ul><li><hr><h3></h3><p>b</p></li></ul>', '- ***\n\n  b'],
+    ['<ul><li><h2></h2><pre>code</pre></li></ul>', '- ```\n  code\n  ```'],
+    ['<ul><li><h2></h2><table><tr><td>x</td></tr></table></li></ul>', '- | x |\n  | --- |'],
+    ['<ul><li><h2></h2><ul><li>b</li></ul></li></ul>', '-\n  - b'],
+    ['<blockquote><ul><li><h3></h3><p>b</p></li></ul></blockquote>', '> - b'],
+    ['<blockquote><ol><li><h3></h3><p>b</p></li></ol></blockquote>', '> 1. b'],
+    ['<ul><li><blockquote><h3></h3><p>b</p></blockquote></li></ul>', '- \n  > b'],
+    ['<h3></h3><p>Partner description</p>', 'Partner description'],
+    ['<blockquote><h3></h3><p>b</p></blockquote>', '> b'],
   ])('closes an empty heading in a list item: %s', async (html, expected) => {
     const engine = await resolveEngine(engineConfig.engine)
     expect(htmlToMarkdown(html, { engine })).toBe(expected)
@@ -318,8 +318,8 @@ describe.each(engines)('headings $name', (engineConfig) => {
     ['<ul><li>Intro <h3>Title</h3><p>Body</p></li></ul>', '- Intro\n\n  ### Title\n\n  Body'],
     ['<ul><li>Intro\n    <h3>Title</h3><p>Body</p></li></ul>', '- Intro\n\n  ### Title\n\n  Body'],
     ['<ul><li><strong>Intro</strong> <h3>Title</h3></li></ul>', '- **Intro**\n\n  ### Title'],
-    ['<ul><li>Intro <h3></h3><p>Body</p></li></ul>', '- Intro\n\n  ###\n\n  Body'],
-    ['<ul><li><h3></h3>Text</li></ul>', '- ###\n\n  Text'],
+    ['<ul><li>Intro <h3></h3><p>Body</p></li></ul>', '- Intro\n\n  Body'],
+    ['<ul><li><h3></h3>Text</li></ul>', '- Text'],
     ['<ol><li><h1>T</h1>\nx</li><li>y</li></ol>', '1. # T\n\n   x\n2. y'],
     ['<ol start="10"><li><h3>T</h3>x</li></ol>', '10. ### T\n\n    x'],
     ['<ul><li><h3>Title</h3><strong>Text</strong></li></ul>', '- ### Title\n\n  **Text**'],
@@ -404,8 +404,8 @@ describe.each(engines)('headings $name', (engineConfig) => {
   // A `<p>` or `<div>` that opens the fence of a `<pre>` after the heading
   // leaves its separator to the fence.
   it.each([
-    ['<ul><li><h1></h1><pre><div>x</div></pre></li></ul>', '- #\n\n  ```\n  x\n  ```'],
-    ['<ul><li><h1></h1><pre> <p>x</p></pre></li></ul>', '- #\n\n  ```\n  x\n  ```'],
+    ['<ul><li><h1></h1><pre><div>x</div></pre></li></ul>', '- ```\n  x\n  ```'],
+    ['<ul><li><h1></h1><pre> <p>x</p></pre></li></ul>', '- ```\n  x\n  ```'],
     ['<ul><li>p<pre><p>x</p></pre></li></ul>', '- p\n\n  ```\n  x\n  ```'],
     ['<ul><li><a href="/w" title="W"><pre><p>x</p></pre></a></li></ul>', '- [\n\n  ```\n  x\n  ```\n\n  W](/w)'],
     ['<ul><li>a<pre><p>x</p><p>y</p></pre></li></ul>', '- a\n\n  ```\n  x\n\n  y\n  ```'],

@@ -2986,6 +2986,18 @@ impl ConvertState {
       output.as_deref(),
       enter_is_literal || caption_heading_enter,
     );
+    if !plain_text!(self)
+      && !enter_is_literal
+      && tag_id.is_some_and(|id| id.wrapping_sub(TAG_H1) < 6)
+      && self.depth_map[TAG_A as usize] == 0
+      && !self.in_table_cell()
+      && self.heading_open.is_none()
+    {
+      self.heading_open = Some((
+        self.drained + output_start,
+        self.drained + self.buffer.len(),
+      ));
+    }
     if open_void_enter {
       self.last_node_is_inline = true;
     }
@@ -3844,6 +3856,22 @@ impl ConvertState {
     if tag_id.is_some_and(|id| id.wrapping_sub(TAG_H1) < 6) {
       self.heading_hash_run = 0;
     }
+    // A heading with no text writes nothing, not even its `#`; its exit still
+    // owes the block break, which the write below settles.
+    let mut dropped_heading = false;
+    if tag_id.is_some_and(|id| id.wrapping_sub(TAG_H1) < 6)
+      && let Some((start, content)) = self.heading_open.take()
+      && start >= self.drained
+      && let (start, content) = (start - self.drained, content - self.drained)
+      && content <= self.buffer.len()
+      && self.buffer.as_bytes()[content..]
+        .iter()
+        .all(|&b| is_whitespace(b))
+    {
+      self.truncate_buffer(start);
+      self.in_heading = false;
+      dropped_heading = true;
+    }
     if let Some(id) = tag_id
       && id.wrapping_sub(TAG_H1) < 6
       && self.depth_map[TAG_A as usize] == 0
@@ -3864,7 +3892,7 @@ impl ConvertState {
       }
       // Raw `<hN>` in a table cell and plain text both write no ATX prefix, so
       // there is no closing sequence to protect.
-      if !plain_text!(self) && !self.in_table_cell() {
+      if !dropped_heading && !plain_text!(self) && !self.in_table_cell() {
         // An overridden exit inside a code span has no ATX closing sequence.
         // Keep its literal hashes, as the override's own handler does in JS.
         if !has_override || self.code_spans.is_empty() {

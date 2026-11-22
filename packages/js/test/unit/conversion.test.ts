@@ -145,15 +145,15 @@ describe('adjacent emphasis and empty list code', () => {
 
 describe('heading hashes followed by a blank of its own', () => {
   it.each([
-    ['<label>x <h1>&#9;</h1>x</label>', 'x \\# \t\n\nx'],
-    ['<label>x <h1>&#9;</h1></label>', 'x \\#'],
+    ['<label>x <h1>&#9;</h1>x</label>', 'x\n\nx'],
+    ['<label>x <h1>&#9;</h1></label>', 'x'],
     ['<h2><u>x <h1>&#9;</h1></u></h2>', '## <u>x \\# \t</u>'],
-    ['<figcaption>x <h1>&#9;</h1>x</figcaption>', '*x \\# \t\n\nx*'],
-    ['<kbd>x <h1>&#9;</h1></kbd>', '`x \\# \t`'],
+    ['<figcaption>x <h1>&#9;</h1>x</figcaption>', '*x\n\nx*'],
+    ['<kbd>x <h1>&#9;</h1></kbd>', '`x `'],
     // The run and the blank in one entry were escaped already.
     ['<label>x <h1>a #&#9;</h1>x</label>', 'x # a \\#\t\n\nx'],
-    // A run that opens the line is the marker of an empty heading.
-    ['<label><h1>&#9;</h1>x</label>', '# \t\n\nx'],
+    // A heading with only a blank has no text, so it writes nothing.
+    ['<label><h1>&#9;</h1>x</label>', 'x'],
   ])('escapes the run as Rust does: %s', async (html, expected) => {
     expect(htmlToMarkdown(html)).toBe(expected)
     for (const size of [1, 2, 3, 7]) {

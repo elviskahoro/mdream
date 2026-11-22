@@ -179,7 +179,7 @@ fn reopened_rule_separates_its_children_in_a_list_item() {
 #[test]
 fn heading_after_reopened_break_starts_its_own_block() {
   let config = [("br", flag(false))];
-  assert_converts("<br><h1></h1></br>b c", &config, "#\n\nb c");
+  assert_converts("<br><h1>h</h1></br>b c", &config, "# h\n\nb c");
   assert_converts(
     "<p>a</p><br><h2>x</h2>| x |",
     &config,
