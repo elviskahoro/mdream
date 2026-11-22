@@ -233,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "mdream-python"
-version = "2.2.0"
+version = "0.1.0"
 dependencies = [
  "mdream",
  "pyo3",

@@ -3,7 +3,7 @@ name: PyPI
 # Publishes the mdream-py distribution (crates/python) to PyPI via trusted
 # publishing. The PyPI trusted publisher is registered to this exact file name
 # (pypi.yaml) and the `pypi` environment, so do not rename either.
-# Runs only on a v* tag or a manual resume; CI lives in python.yml.
+# Runs only on a py-v* tag or a manual resume; CI lives in python.yml.
 
 permissions:
   contents: read
@@ -11,11 +11,11 @@ permissions:
 on:
   push:
     tags:
-      - 'v*'
+      - 'py-v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to resume (for example, v2.2.1)
+        description: Existing release tag to resume (for example, py-v0.1.1)
         required: true
         type: string
 
@@ -69,8 +69,7 @@ jobs:
           if-no-files-found: error
 
   # ── Tag-driven release: publish to PyPI via trusted publishing ──
-  # Mirrors release-cargo.yml (crates.io trusted publishing): version-tag
-  # consistency via scripts/sync-cargo-version.mjs, resumable on re-runs.
+  # Tag py-vX.Y.Z must match the mdream-python crate version; resumable on re-runs.
   # PyPI trusted-publisher pre-registration for this repo/workflow and the
   # first actual publish are human-gated rollout steps (see the plan); this
   # job stays red-free but cannot publish until that registration is done.
@@ -91,16 +90,19 @@ jobs:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
 
-      - name: Resolve release channel
+      - name: Resolve release version
         id: channel
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: node scripts/release-channel.mjs "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+        run: |
+          case "$RELEASE_TAG" in
+            py-v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::Use a py-vX.Y.Z release tag, got $RELEASE_TAG"; exit 1 ;;
+          esac
+          echo "version=${RELEASE_TAG#py-v}" >> "$GITHUB_OUTPUT"
 
       - name: Verify release branch
-        env:
-          RELEASE_BRANCH: ${{ steps.channel.outputs.branch }}
-        run: git merge-base --is-ancestor HEAD "origin/$RELEASE_BRANCH"
+        run: git merge-base --is-ancestor HEAD origin/main
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -121,7 +123,7 @@ jobs:
           echo "crate=$CRATE_VERSION" >> "$GITHUB_OUTPUT"
 
           if [ "$TAG_VERSION" != "$CRATE_VERSION" ]; then
-            echo "::error::Tag v$TAG_VERSION does not match mdream-python crate version $CRATE_VERSION. Did the version bump run scripts/sync-cargo-version.mjs?"
+            echo "::error::Tag py-v$TAG_VERSION does not match mdream-python crate version $CRATE_VERSION. Bump crates/python/Cargo.toml (and Cargo.lock) first."
             exit 1
           fi
 
