@@ -2996,6 +2996,7 @@ impl ConvertState {
         self.drained + output_start,
         self.drained + self.buffer.len(),
         self.stack[stack_len - 1].depth,
+        self.drained + self.buffer.len(),
       ));
     }
     if open_void_enter {
@@ -3860,8 +3861,8 @@ impl ConvertState {
     // owes the block break, which the write below settles.
     let mut dropped_heading = false;
     if tag_id.is_some_and(|id| id.wrapping_sub(TAG_H1) < 6)
-      && self.heading_open.last().is_some_and(|&(_, _, depth)| depth == node.depth)
-      && let Some((start, content, _)) = self.heading_open.pop()
+      && self.heading_open.last().is_some_and(|&(_, _, depth, _)| depth == node.depth)
+      && let Some((start, content, _, _)) = self.heading_open.pop()
       && start >= self.drained
       && let (start, content) = (start - self.drained, content - self.drained)
       && content <= self.buffer.len()

@@ -47,6 +47,14 @@ describe('empty headings', () => {
     await iterator.return?.()
   })
 
+  it('streams a large whitespace-only heading', async () => {
+    const whitespace = '<br>'.repeat(12000)
+    for (const suffix of ['</h1><p>body</p>', 'text</h1>']) {
+      const html = `<h1>${whitespace}${suffix}`
+      expect(await convertStream(html, 64)).toBe(htmlToMarkdown(html))
+    }
+  })
+
   it('escapes a literal blockquote marker after an empty nested heading', async () => {
     const html = '<li><ul><li><ul><li><h3></h3><e><figcaption><code><em></figcaption><div><r></ul>>'
     expect(htmlToMarkdown(html)).toMatch(/- \\>$/)

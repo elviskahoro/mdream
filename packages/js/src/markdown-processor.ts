@@ -2118,7 +2118,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
   let captionLineOpens = false
   const gfmLifecycle: GfmLifecycleState = { openCodeSpans: [], quoteWritten: false }
   // Fragment indices before and after an open ATX heading's prefix, so a heading with no text can be taken back.
-  const headings: { element: ElementNode, start: number, content: number }[] = []
+  const headings: { element: ElementNode, start: number, content: number, scanned: number, scannedChars: number }[] = []
   let openLinkFragment = -1
   let openLinkHeadingBreak = false
   let openLinkCaptionBreakRun = 0
@@ -4295,7 +4295,7 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     }
     if (eventType === NodeEventEnter && tagId >= TAG_H1 && tagId <= TAG_H6 && output && !handler?.literalEnter
       && !state.depthMap[TAG_A] && !isInsideTableCell(state)) {
-      headings.push({ element, start: outputStart, content: buff.length })
+      headings.push({ element, start: outputStart, content: buff.length, scanned: buff.length, scannedChars: 0 })
     }
     if (eventType === NodeEventEnter && handler?.literalEnter && (handler.isInline ?? tagId === -1) && outputStart < buff.length)
       literalOpeners.push(element.depth, buff.length)
@@ -4536,8 +4536,24 @@ export function createMarkdownProcessor<T>(options: EngineOptions = {}, createSt
     // never be rewritten, and holding it suppressed the whole output.
     while (!final && headings.length && !openMarkerCount && openLinkFragment === -1 && !gfmLifecycle.openCodeSpans.length) {
       const heading = headings.at(-1)!
-      if (!state.buffer.slice(heading.content).some(hasNonWhitespace))
+      let index = Math.max(heading.content, Math.min(heading.scanned, state.buffer.length))
+      let offset = index === heading.scanned ? heading.scannedChars : 0
+      while (index < state.buffer.length) {
+        const fragment = state.buffer[index]!
+        offset = Math.min(offset, fragment.length)
+        if (hasNonWhitespace(fragment.slice(offset)))
+          break
+        offset = fragment.length
+        if (index + 1 === state.buffer.length)
+          break
+        index++
+        offset = 0
+      }
+      if (index === state.buffer.length || (index === state.buffer.length - 1 && offset === state.buffer[index]!.length)) {
+        heading.scanned = index
+        heading.scannedChars = offset
         break
+      }
       headings.pop()
     }
     let heldFragment = final

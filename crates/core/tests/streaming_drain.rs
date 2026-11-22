@@ -7031,3 +7031,11 @@ fn empty_heading_with_unclosed_inline_markup_streams_like_one_shot() {
     assert_eq!(stream_chunks(html, 1, HtmlToMarkdownOptions::default()), html_to_markdown(html, HtmlToMarkdownOptions::default()));
   }
 }
+
+#[test]
+fn large_whitespace_only_heading_streams_like_one_shot() {
+  for suffix in ["</h1><p>body</p>", "text</h1>"] {
+    let html = format!("<h1>{}{suffix}", "<br>".repeat(12000));
+    assert_eq!(stream_chunks(&html, 64, HtmlToMarkdownOptions::default()), html_to_markdown(&html, HtmlToMarkdownOptions::default()));
+  }
+}
