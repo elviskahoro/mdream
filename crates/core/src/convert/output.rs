@@ -2768,7 +2768,7 @@ impl ConvertState {
     }
 
     if self.link.raw_open_len != 0 && enter_is_literal
-      && output.as_deref().is_some_and(|s| !s.trim().is_empty())
+      && output.as_deref().is_some_and(|s| s.bytes().any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r')))
     {
       self.link.raw_has_text = true;
       self.link.empty_text_pending = false;
@@ -3720,7 +3720,7 @@ impl ConvertState {
       self.flush_pre_fence();
     }
     if self.link.raw_open_len != 0 && has_override
-      && output.as_deref().is_some_and(|s| !s.trim().is_empty())
+      && output.as_deref().is_some_and(|s| s.bytes().any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r')))
     {
       self.link.raw_has_text = true;
       self.link.empty_text_pending = false;
@@ -4461,7 +4461,7 @@ impl ConvertState {
         }
       }
     }
-    if self.link.raw_open_len != 0 && !text.trim().is_empty() {
+    if self.link.raw_open_len != 0 && text.bytes().any(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\x0c' | b'\r')) {
       self.link.raw_has_text = true;
       self.link.empty_text_pending = false;
     }

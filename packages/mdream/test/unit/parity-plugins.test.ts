@@ -48,6 +48,7 @@ const CASES: { group: string, config: keyof typeof CONFIGS, formats?: Format[], 
     '<p>a <a href="/x"></a> b</p>',
     '<details><a href="/x"><img src="a.png"></a></details>',
     '<details><a href="/x">t<img src="a.png"></a></details>',
+    '<details><a href="/x">&nbsp;<img src="x"></a></details>',
   ] },
   { group: 'no-images-override', config: 'noImagesOverride', formats: ['markdown', 'text'], html: [
     '<p>a <img src="b.png" alt="B"> c</p>',
